@@ -210,7 +210,8 @@ export class ExploreArea implements Provider {
 
 	getTimeRequired(): number {
 		this.#consumablesUsed = new Map<number, number>();
-		
+
+		let timeCost = 0;
 		let attemptsLeft = this.getAttemptsRequired();
 		let stamina = this.#lastState.playerInfo.maxStamina;
 		const STAMINA_PER_ATTEMPT = 1;
@@ -223,6 +224,7 @@ export class ExploreArea implements Provider {
 		if (orangeJuiceToUse > 0) {
 			this.#consumablesUsed.set(ORANGE_JUICE_ID, orangeJuiceToUse);
 			stamina += STAMINA_PER_ORANGE_JUICE * orangeJuiceToUse;
+			timeCost += (orangeJuiceToUse/10) * 5000;
 		}
 		
 		// Use Apple Cider (1010 attempts instantly, but requires stamina)
@@ -233,6 +235,7 @@ export class ExploreArea implements Provider {
 			this.#consumablesUsed.set(APPLE_CIDER_ID, appleCiderToUse);
 			attemptsLeft -= ATTEMPTS_PER_APPLE_CIDER * appleCiderToUse;
 			stamina -= ATTEMPTS_PER_APPLE_CIDER * appleCiderToUse;
+			timeCost += appleCiderToUse * 500;
 		}
 		
 		// Use Arnold Palmer (200 attempts instantly)
@@ -243,6 +246,7 @@ export class ExploreArea implements Provider {
 		if (arnoldPalmerToUse > 0) {
 			this.#consumablesUsed.set(ARNOLD_PALMER_ID, arnoldPalmerToUse);
 			attemptsLeft -= ATTEMPTS_PER_AP * arnoldPalmerToUse;
+			timeCost += arnoldPalmerToUse * 500;
 		}
 		
 		// Use Lemonade (10 attempts instantly)
@@ -251,15 +255,16 @@ export class ExploreArea implements Provider {
 		if (lemonadeToUse > 0) {
 			this.#consumablesUsed.set(LEMONADE_ID, lemonadeToUse);
 			attemptsLeft -= ATTEMPTS_PER_LEMONADE * lemonadeToUse;
+			timeCost += lemonadeToUse * 500;
 		}
 		
 		// If we still have attempts left, use remaining stamina
 		if (attemptsLeft <= 0) {
-			return 0;
+			return timeCost;
 		}
 		
 		if (stamina >= attemptsLeft) {
-			return 0;
+			return timeCost + (attemptsLeft * 500);
 		}
 		
 		attemptsLeft -= stamina;
@@ -268,8 +273,9 @@ export class ExploreArea implements Provider {
 		const STAMINA_PER_CYCLE = 20;
 		const CYCLE_TIME_MS = 10 * 60 * 1000; // 10 minutes
 		let cyclesNeeded = Math.ceil(attemptsLeft / STAMINA_PER_CYCLE);
+		timeCost += (cyclesNeeded * CYCLE_TIME_MS) + (attemptsLeft * 500)
 		
-		return cyclesNeeded * CYCLE_TIME_MS + ((appleCiderToUse + arnoldPalmerToUse + lemonadeToUse) * 500) + ((orangeJuiceToUse/10) * 1000);
+		return timeCost;
 	}
 
 	private getAttemptsRequired() {

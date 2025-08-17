@@ -60,7 +60,7 @@ async function _greedySearchState(state: NextState, emit: (_: NextState) => void
 	}
 
 	emit(bestFuture);
-	await sleep(100);
+	await sleep(10);
 
 	return _greedySearchState(bestFuture, emit);
 }
