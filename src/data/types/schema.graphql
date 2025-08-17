@@ -1,0 +1,652 @@
+schema {
+  query: Query
+}
+
+type BorgenItem {
+  date: Date!
+  id: Int!
+  item(pagination: OffsetPaginationInput): Item!
+  price: Int
+}
+
+input BorgenItemFilter {
+  date: Date
+  item: DjangoModelFilterInput
+}
+
+type CardsTrade {
+  clubsQuantity: Int
+  diamondsQuantity: Int
+  heartsQuantity: Int
+  id: Int!
+  isDisabled: Boolean!
+  jokerQuantity: Int
+  outputItem(pagination: OffsetPaginationInput): Item!
+  outputQuantity: Int!
+  spadesQuantity: Int
+}
+
+input CardsTradeFilter {
+  id: Int
+  isDisabled: Boolean
+}
+
+input CardsTradeOrder {
+  id: Ordering
+}
+
+type CommunityCenter {
+  date: Date!
+  id: Int!
+  inputItem(pagination: OffsetPaginationInput): Item!
+  inputQuantity: Int!
+  outputGold: Int
+  outputItem(pagination: OffsetPaginationInput): Item
+  outputQuantity: Int
+  progress: Int!
+}
+
+input CommunityCenterFilter {
+  date: Date
+  inputItem: DjangoModelFilterInput
+  outputItem: DjangoModelFilterInput
+}
+
+input CommunityCenterOrder {
+  date: Ordering
+  id: Ordering
+}
+
+"""Date (isoformat)"""
+scalar Date
+
+"""Date with time (isoformat)"""
+scalar DateTime
+
+input DjangoModelFilterInput {
+  pk: ID!
+}
+
+type DropRates {
+  ironDepot: Boolean
+  items: [DropRatesItem!]!
+  location: Location
+  manualFishing: Boolean
+  runecube: Boolean
+  seed(pagination: OffsetPaginationInput): Item
+  silverPerHit: Float
+  xpPerHit: Float
+}
+
+type DropRatesItem {
+  dropRates: DropRates!
+  item(pagination: OffsetPaginationInput): Item!
+  rate: Float!
+}
+
+type Emblem {
+  createdAt: DateTime!
+  id: Int!
+  image: String!
+  keywords: String!
+  name: String!
+  type: String
+}
+
+input EmblemFilter {
+  id: ID
+  keywords: String
+  name: String
+  nonStaff: Boolean
+  type: String
+}
+
+"""
+The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as `"4"`) or integer (such as `4`) input value will be accepted as an ID.
+"""
+scalar GlobalID
+
+type Item {
+  baseYieldMinutes: Int!
+  borgenItems: [BorgenItem!]!
+  buyPrice: Int!
+  canBuy: Boolean!
+  canCook: Boolean!
+  canCraft: Boolean!
+  canFleaMarket: Boolean!
+  canLocksmith: Boolean!
+  canMail: Boolean!
+  canMaster: Boolean!
+  canSell: Boolean!
+  cardsTrades(filters: CardsTradeFilter, order: CardsTradeOrder): [CardsTrade!]!
+  communityCenterInputs(order: CommunityCenterOrder, pagination: OffsetPaginationInput): [CommunityCenter!]!
+  communityCenterOutputs(order: CommunityCenterOrder, pagination: OffsetPaginationInput): [CommunityCenter!]!
+  cookingLevel: Int
+  cookingRecipeCookable(pagination: OffsetPaginationInput): Item
+  cookingRecipeItem(pagination: OffsetPaginationInput): Item
+  craftingLevel: Int!
+  description: String!
+  dropRates: [DropRates!]!
+  dropRatesItems: [DropRatesItem!]!
+  exchangeCenterInputs: [Trade!]!
+  exchangeCenterOutputs: [Trade!]!
+  fleaMarketPrice: Int
+  fleaMarketRotate: Boolean!
+  fromEvent: Boolean!
+  id: Int!
+  image: String!
+  locationItems: [LocationItem!]!
+  locksmithGold: Int
+  locksmithGrabBag: Boolean!
+  locksmithItems: [LocksmithItem!]!
+  locksmithKey(pagination: OffsetPaginationInput): Item
+  locksmithKeyItems(filters: ItemFilter, order: ItemOrder, pagination: OffsetPaginationInput): [Item!]!
+  locksmithOutputItems: [LocksmithItem!]!
+  manualFishingOnly: Boolean!
+  manualProductions: [ManualProduction!]!
+  minMailableLevel: Int!
+  name: String!
+  npcItems: [NPCItem!]!
+  npcRewards: [NPCReward!]!
+  passwordItems: [PasswordItem!]!
+  petItems(order: PetItemOrder): [PetItem!]!
+  profileBackgroundCostItems: [ProfileBackground!]!
+  quizRewards: [QuizReward!]!
+  recipeIngredientItems: [RecipeItem!]!
+  recipeItems: [RecipeItem!]!
+  requiredForQuests: [QuestItemRequired!]!
+  rewardForQuests: [QuestItemReward!]!
+  sellPrice: Int!
+  skillLevelRewards(filters: SkillLevelRewardFilter, order: SkillLevelRewardOrder): [SkillLevelReward!]!
+  templeRewardItems: [TempleRewardItem!]!
+  templeRewards: [TempleReward!]!
+  towerRewards(order: TowerRewardOrder): [TowerReward!]!
+  type: String!
+  wishingWellInputItems: [WishingWellItem!]!
+  wishingWellOutputItems: [WishingWellItem!]!
+  xp: Int!
+}
+
+input ItemFilter {
+  canMail: Boolean
+  id: ID
+  name: String
+}
+
+input ItemOrder {
+  createdAt: Ordering
+  id: Ordering
+  name: Ordering
+}
+
+type Location {
+  baseDropRate: Float
+  dropRates: [DropRates!]!
+  gameId: Int!
+  id: Int!
+  image: String!
+  locationItems: [LocationItem!]!
+  name: String!
+  type: String!
+}
+
+input LocationFilter {
+  id: ID
+  name: String
+  type: String
+}
+
+type LocationItem {
+  item(pagination: OffsetPaginationInput): Item!
+  location: Location!
+  sometimes: Boolean!
+}
+
+input LocationOrder {
+  gameId: Ordering
+  id: Ordering
+  name: Ordering
+  type: Ordering
+}
+
+type LocksmithItem {
+  item(pagination: OffsetPaginationInput): Item!
+  outputItem(pagination: OffsetPaginationInput): Item!
+  quantityMax: Int
+  quantityMin: Int
+}
+
+type ManualProduction {
+  href: String
+  image: String!
+  item(pagination: OffsetPaginationInput): Item!
+  lineOne: String!
+  lineTwo: String!
+  sort: Int!
+  value: String!
+}
+
+type NPC {
+  id: Int!
+  image: String!
+  isAvailable: Boolean!
+  name: String!
+  npcItems(filters: NPCItemFilter, order: NPCItemOrder): [NPCItem!]!
+  npcRewards(filters: NPCRewardFilter, order: NPCRewardOrder): [NPCReward!]!
+  quests(filters: QuestFilter, order: QuestOrder): [Quest!]!
+  shortName: String
+}
+
+input NPCFilter {
+  id: ID
+  isAvailable: Boolean
+  name: String
+  shortName: String
+}
+
+type NPCItem {
+  item(pagination: OffsetPaginationInput): Item!
+  npc: NPC!
+  relationship: String!
+}
+
+input NPCItemFilter {
+  item: ItemFilter
+  npc: NPCFilter
+  relationship: String
+}
+
+input NPCItemOrder {
+  item: ItemOrder
+  npc: NPCOrder
+  relationship: Ordering
+}
+
+input NPCOrder {
+  id: Ordering
+  name: Ordering
+  shortName: Ordering
+}
+
+type NPCReward {
+  item(pagination: OffsetPaginationInput): Item!
+  level: Int!
+  npc: NPC!
+  order: Int!
+  quantity: Int!
+}
+
+input NPCRewardFilter {
+  item: ItemFilter
+  npc: NPCFilter
+}
+
+input NPCRewardOrder {
+  item: ItemOrder
+  level: Ordering
+  npc: NPCOrder
+  order: Ordering
+}
+
+input OffsetPaginationInput {
+  limit: Int! = -1
+  offset: Int! = 0
+}
+
+enum Ordering {
+  ASC
+  DESC
+}
+
+type Password {
+  clue1: String
+  clue2: String
+  clue3: String
+  group: PasswordGroup!
+  id: Int!
+  password: String!
+  rewardGold: Int!
+  rewardItems: [PasswordItem!]!
+  rewardSilver: Int!
+}
+
+input PasswordFilter {
+  hasClues: Boolean
+  id: Int
+  password: String
+}
+
+type PasswordGroup {
+  name: String!
+  passwords(filters: PasswordFilter): [Password!]!
+}
+
+input PasswordGroupFilter {
+  name: String
+}
+
+type PasswordItem {
+  item(pagination: OffsetPaginationInput): Item!
+  password: Password!
+  quantity: Int!
+}
+
+type Pet {
+  cost: Float!
+  id: Int!
+  image: String!
+  name: String!
+  order: Int!
+  petItems(order: PetItemOrder): [PetItem!]!
+  requiredCookingLevel: Int!
+  requiredCraftingLevel: Int!
+  requiredExploringLevel: Int!
+  requiredFarmingLevel: Int!
+  requiredFishingLevel: Int!
+}
+
+input PetFilter {
+  id: ID
+  name: String
+}
+
+type PetItem {
+  id: Int!
+  item(pagination: OffsetPaginationInput): Item!
+  level: Int!
+  order: Int!
+  pet: Pet!
+}
+
+input PetItemOrder {
+  level: Ordering
+  order: Ordering
+  pet: PetOrder
+}
+
+input PetOrder {
+  id: Ordering
+  name: Ordering
+  order: Ordering
+}
+
+type ProfileBackground {
+  costGold: Int
+  costItem(pagination: OffsetPaginationInput): Item
+  costItemQuantity: Int
+  costSilver: Float
+  darkImage: String!
+  gameId: Int
+  id: GlobalID!
+  lightImage: String!
+  name: String!
+}
+
+input ProfileBackgroundFilter {
+  gameId: Int
+  id: ID
+  name: String
+}
+
+input ProfileBackgroundOrder {
+  gameId: Ordering
+  id: Ordering
+  name: Ordering
+}
+
+type Query {
+  borgenItems(filters: BorgenItemFilter): [BorgenItem!]!
+  cardsTrades(filters: CardsTradeFilter, order: CardsTradeOrder): [CardsTrade!]!
+  communityCenters(filters: CommunityCenterFilter, order: CommunityCenterOrder, pagination: OffsetPaginationInput): [CommunityCenter!]!
+  emblems(filters: EmblemFilter): [Emblem!]!
+  items(filters: ItemFilter, order: ItemOrder, pagination: OffsetPaginationInput): [Item!]!
+  locations(filters: LocationFilter, order: LocationOrder): [Location!]!
+  npcs(filters: NPCFilter, order: NPCOrder): [NPC!]!
+  passwordGroups(filters: PasswordGroupFilter): [PasswordGroup!]!
+  passwords(filters: PasswordFilter): [Password!]!
+  pets(filters: PetFilter, order: PetOrder): [Pet!]!
+  profileBackgrounds(filters: ProfileBackgroundFilter, order: ProfileBackgroundOrder): [ProfileBackground!]!
+  questlines(filters: QuestlineFilter, order: QuestlineOrder): [Questline!]!
+  quests(filters: QuestFilter, order: QuestOrder, pagination: OffsetPaginationInput): [Quest!]!
+  quizzes(filters: QuizFilter): [Quiz!]!
+  skillLevelRewards(filters: SkillLevelRewardFilter, order: SkillLevelRewardOrder): [SkillLevelReward!]!
+  towerRewards(filters: TowerRewardFilter, order: TowerRewardOrder): [TowerReward!]!
+  trades(order: TradeOrder): [Trade!]!
+  updates(filters: UpdateFilter): [Update!]!
+}
+
+type Quest {
+  author: String
+  cleanDescription: String!
+  cleanTitle: String!
+  completedCount: Int!
+  dependentQuests(filters: QuestFilter, order: QuestOrder, pagination: OffsetPaginationInput): [Quest!]!
+  description: String!
+  endDate: DateTime
+  id: Int!
+  isHidden: Boolean!
+  mainQuest: Boolean!
+  npc: String!
+  npcImg: String!
+  pred(pagination: OffsetPaginationInput): Quest
+  questlines: [QuestlineStep!]!
+  requiredCookingLevel: Int!
+  requiredCraftingLevel: Int!
+  requiredExploringLevel: Int!
+  requiredFarmingLevel: Int!
+  requiredFishingLevel: Int!
+  requiredItems(order: QuestItemRequiredOrder): [QuestItemRequired!]!
+  requiredNpc: NPC
+  requiredNpcLevel: Int!
+  requiredSilver: Float!
+  requiredTowerLevel: Int!
+  rewardGold: Int!
+  rewardItems(order: QuestItemRewardOrder): [QuestItemReward!]!
+  rewardSilver: Float!
+  startDate: DateTime
+  title: String!
+}
+
+input QuestFilter {
+  cleanTitle: String
+  id: ID
+  title: String
+}
+
+type QuestItemRequired {
+  id: Int!
+  item(pagination: OffsetPaginationInput): Item!
+  order: Int!
+  quantity: Int!
+  quest(pagination: OffsetPaginationInput): Quest!
+}
+
+input QuestItemRequiredOrder {
+  id: Ordering
+  item: ItemOrder
+  order: Ordering
+  quantity: Ordering
+  quest: QuestOrder
+}
+
+type QuestItemReward {
+  id: Int!
+  item(pagination: OffsetPaginationInput): Item!
+  order: Int!
+  quantity: Int!
+  quest(pagination: OffsetPaginationInput): Quest!
+}
+
+input QuestItemRewardOrder {
+  id: Ordering
+  item: ItemOrder
+  order: Ordering
+  quantity: Ordering
+  quest: QuestOrder
+}
+
+input QuestOrder {
+  cleanTitle: Ordering
+  createdAt: Ordering
+  id: Ordering
+  title: Ordering
+}
+
+type Questline {
+  automatic: Boolean!
+  id: Int!
+  image: String!
+  steps: [QuestlineStep!]!
+  title: String!
+}
+
+input QuestlineFilter {
+  id: Int
+  title: String
+}
+
+input QuestlineOrder {
+  id: Ordering
+  title: Ordering
+}
+
+type QuestlineStep {
+  order: Int!
+  quest(pagination: OffsetPaginationInput): Quest!
+  questline: Questline!
+}
+
+type Quiz {
+  answers: [QuizAnswer!]!
+  description: String!
+  id: Int!
+  name: String!
+  rewards: [QuizReward!]!
+}
+
+type QuizAnswer {
+  answer1: String!
+  answer2: String!
+  answer3: String!
+  answer4: String!
+  correct: Int!
+  displayOrder: Int!
+  isHidden: Boolean!
+  question: String!
+  quiz: Quiz!
+}
+
+input QuizFilter {
+  id: ID
+  name: String
+}
+
+type QuizReward {
+  item(pagination: OffsetPaginationInput): Item!
+  quantity: Int!
+  quiz: Quiz!
+  score: Int!
+}
+
+type RecipeItem {
+  ingredientItem(pagination: OffsetPaginationInput): Item!
+  item(pagination: OffsetPaginationInput): Item!
+  quantity: Int!
+}
+
+type SkillLevelReward {
+  ak: Int
+  gold: Int
+  id: Int!
+  item(pagination: OffsetPaginationInput): Item
+  itemQuantity: Int
+  level: Int!
+  order: Int!
+  silver: Int
+  skill: String!
+}
+
+input SkillLevelRewardFilter {
+  id: Int
+  level: Int
+  skill: String
+}
+
+input SkillLevelRewardOrder {
+  id: Ordering
+  level: Ordering
+  order: Ordering
+  skill: Ordering
+}
+
+type TempleReward {
+  gold: Int
+  id: Int!
+  inputItem(pagination: OffsetPaginationInput): Item!
+  inputQuantity: Int!
+  items: [TempleRewardItem!]!
+  minLevelRequired: Int!
+  silver: Int
+}
+
+type TempleRewardItem {
+  id: Int!
+  item(pagination: OffsetPaginationInput): Item!
+  order: Int!
+  quantity: Int!
+  templeReward: TempleReward!
+}
+
+type TowerReward {
+  gold: Int
+  item(pagination: OffsetPaginationInput): Item
+  itemQuantity: Int
+  level: Int!
+  order: Int!
+  silver: Int
+}
+
+input TowerRewardFilter {
+  level: Int
+  order: Int
+}
+
+input TowerRewardOrder {
+  level: Ordering
+  order: Ordering
+}
+
+type Trade {
+  firstSeen: DateTime!
+  id: Int!
+  inputItem(pagination: OffsetPaginationInput): Item!
+  inputQuantity: Int!
+  lastSeen: DateTime!
+  oneshot: Boolean!
+  outputItem(pagination: OffsetPaginationInput): Item!
+  outputQuantity: Int!
+}
+
+input TradeOrder {
+  firstSeen: Ordering
+  inputItem: ItemOrder
+  lastSeen: Ordering
+  outputItem: ItemOrder
+}
+
+type Update {
+  cleanContent: String!
+  content: String!
+  date: Date!
+  textContent: String!
+}
+
+input UpdateFilter {
+  date: Date
+}
+
+type WishingWellItem {
+  chance: Float!
+  inputItem(pagination: OffsetPaginationInput): Item!
+  outputItem(pagination: OffsetPaginationInput): Item!
+}
