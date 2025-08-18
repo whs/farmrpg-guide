@@ -3,17 +3,21 @@ import {
 	APPLE_CIDER_ID,
 	APPLE_ID,
 	ARNOLD_PALMER_ID,
+	BOARD_ID,
+	COAL_ID,
 	COMPASS_ID,
 	DETECTOR_ID,
+	EGGS_ID,
+	FEATHERS_ID,
 	FISHING_NET_ID, GameplayError, GARY_CRUSHROOM_KEY_ID, GRUB_ID, GUMMY_WORM_ID, INFERNO_SPHERE_ID, IRON_ID,
 	LARGE_FISHING_NET_ID,
 	LAVA_SPHERE_ID,
 	LEMON_ID,
-	LEMONADE_ID, MAPPING_COMPASS_ID, MEALWORM_ID, MINNOW_ID, NAILS_ID,
+	LEMONADE_ID, MAPPING_COMPASS_ID, MEALWORM_ID, MILK_ID, MINNOW_ID, NAILS_ID,
 	ORANGE_ID,
 	ORANGE_JUICE_ID,
 	Provider,
-	SearchState, TRIBAL_MASK_ID, WATER_ORB_ID, WORM_ID
+	SearchState, STONE_ID, STRAW_ID, TRIBAL_MASK_ID, WATER_ORB_ID, WOOD_ID, WORM_ID
 } from "./types.ts";
 import {getItemInfo, ItemInfo, LocationInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {DropRatesItem} from "src/data/types/graphql.ts";
@@ -707,7 +711,7 @@ export class CraftItem implements Provider {
 
 // }
 
-export class WaitForOrchard implements Provider {
+export class WaitForReset implements Provider {
 	#state: SearchState
 
 	constructor(state: SearchState){
@@ -720,19 +724,68 @@ export class WaitForOrchard implements Provider {
 	}
 	
 	async nextState(): Promise<SearchState> {
-		if(this.#state.playerInfo.orchardApple === 0 && this.#state.playerInfo.orchardLemon === 0 && this.#state.playerInfo.orchardOrange === 0) {
-			throw new GameplayError("Orchard doesn't have trees");
-		}
-		
 		return produce(this.#state, (draft) => {
 			draft.inventory = draft.inventory.slice();
 			increaseInventoryItem(draft.inventory, APPLE_ID, this.#state.playerInfo.orchardApple, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, ORANGE_ID, this.#state.playerInfo.orchardOrange, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, LEMON_ID, this.#state.playerInfo.orchardLemon, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, EGGS_ID, this.#state.playerInfo.coopEggs, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, FEATHERS_ID, this.#state.playerInfo.coopFeathers, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, MILK_ID, this.#state.playerInfo.pastureMilk, this.#state.playerInfo.maxInventory);
 		})
 	}
 	
 	toString(): string {
-		return "Wait for Orchard to Grow"
+		return "Wait for next reset"
+	}
+}
+
+
+export class WaitForHourly implements Provider {
+	#state: SearchState
+
+	constructor(state: SearchState){
+		this.#state = state;
+	}
+
+	getTimeRequired(): number {
+		return 60*60000;
+	}
+	
+	async nextState(): Promise<SearchState> {
+		return produce(this.#state, (draft) => {
+			draft.inventory = draft.inventory.slice();
+			increaseInventoryItem(draft.inventory, BOARD_ID, this.#state.playerInfo.sawmillBoard, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, WOOD_ID, this.#state.playerInfo.sawmillWood, this.#state.playerInfo.maxInventory);
+		})
+	}
+	
+	toString(): string {
+		return "Wait for next hour"
+	}
+}
+
+export class WaitFor10Min implements Provider {
+	#state: SearchState
+
+	constructor(state: SearchState){
+		this.#state = state;
+	}
+
+	getTimeRequired(): number {
+		return 10*60000;
+	}
+	
+	async nextState(): Promise<SearchState> {
+		return produce(this.#state, (draft) => {
+			draft.inventory = draft.inventory.slice();
+			increaseInventoryItem(draft.inventory, STRAW_ID, this.#state.playerInfo.hayfieldStraw, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, STONE_ID, this.#state.playerInfo.quarryStone, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, COAL_ID, this.#state.playerInfo.quarryCoal, this.#state.playerInfo.maxInventory);
+		})
+	}
+	
+	toString(): string {
+		return "Wait for 10 minutes"
 	}
 }

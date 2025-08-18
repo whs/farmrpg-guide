@@ -1,6 +1,6 @@
 import {GameplayError, MAX_ITEMS, Objective, Provider, SearchState} from "./types.ts";
 import {getItemInfo, getLocationInfo, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
-import {BuyItemStore, CraftItem, ExploreArea, FarmPlant, ManualFishing, NetFishing, SubmitQuest, WaitForOrchard} from "./provider.ts";
+import {BuyItemStore, CraftItem, ExploreArea, FarmPlant, ManualFishing, NetFishing, SubmitQuest, WaitFor10Min, WaitForHourly, WaitForReset} from "./provider.ts";
 import {castDraft, produce} from "immer";
 
 export function arrayToUint16(inventory: number[]){
@@ -69,7 +69,9 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	// TODO: Probably better ideas
 	let strategies: Provider[] = [
 		new SubmitQuest(objective.quest!!, state.state),
-		new WaitForOrchard(state.state),
+		new WaitForReset(state.state),
+		new WaitForHourly(state.state),
+		new WaitFor10Min(state.state),
 	];
 	strategies.push(...(await Promise.all(objective.quest!!.requiredItems.map(async (requiredItem) => {
 		let itemInfo = await getItemInfo(requiredItem.item.name);

@@ -21,17 +21,22 @@ export interface PlayerInfo {
 	maxStamina: number,
 	skills: Skills,
 
+	// Daily
 	coopEggs: number,
 	coopFeathers: number,
 	pastureMilk: number,
-	sawmillBoard: number,
-	sawmillWood: number,
-	hayfieldStraw: number,
-	quarryStone: number,
-	quarryCoal: number,
 	orchardApple: number,
 	orchardOrange: number,
 	orchardLemon: number,
+
+	// Hourly
+	sawmillBoard: number,
+	sawmillWood: number,
+
+	// 10 min-ly
+	hayfieldStraw: number,
+	quarryStone: number,
+	quarryCoal: number,
 }
 
 export interface Skills {
@@ -73,6 +78,14 @@ export const WATER_ORB_ID = 701;
 export const APPLE_ID = 44;
 export const ORANGE_ID = 61;
 export const LEMON_ID = 62;
+export const EGGS_ID = 26;
+export const FEATHERS_ID = 42;
+export const MILK_ID = 85;
+export const BOARD_ID = 21;
+export const WOOD_ID = 35;
+export const STRAW_ID = 128;
+export const STONE_ID = 40;
+export const COAL_ID = 103;
 
 export class GameplayError extends Error {
 }
