@@ -70,48 +70,10 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	let strategies: Provider[] = [
 		new SubmitQuest(objective.quest!!, state.state),
 	];
-	for(let requiredItem of objective.quest!!.requiredItems) {
+	strategies.push(...(await Promise.all(objective.quest!!.requiredItems.map(async (requiredItem) => {
 		let itemInfo = await getItemInfo(requiredItem.item.name);
-		let itemsNeeded = requiredItem.quantity - state.state.inventory[itemInfo.id];
-
-		if(itemsNeeded <= 0) {
-			continue;
-		}
-
-		if(itemInfo.canBuy) {
-			strategies.push(new BuyItemStore(itemInfo, itemsNeeded, state.state));
-		}
-		if(itemInfo.canCraft) {
-			// TODO: Recursively search for items needed to craft
-			// TODO: Check requirements
-			strategies.push(new CraftItem(itemInfo, itemsNeeded, state.state));
-		}
-
-		for (let method of itemInfo.dropRatesItems) {
-			if (method.dropRates.seed) {
-				// TODO: Check requirements
-				let seedInfo = await getItemInfo(method.dropRates.seed.name);
-				let farmPlant = new FarmPlant(seedInfo, itemInfo, itemsNeeded, state.state);
-				let seedNeeded = farmPlant.getSeedNeeded() - state.state.inventory[seedInfo.id];
-				if(seedInfo.canBuy && seedNeeded > 0){
-					// TODO: I think this doesn't get calculated as quest progression
-					strategies.push(new BuyItemStore(seedInfo, seedNeeded, state.state));
-				}
-				strategies.push(farmPlant);
-			}
-			if(method.dropRates.location?.type === "explore") {
-				// TODO: Check requirements
-				let locationInfo = await getLocationInfo(method.dropRates.location.name);
-				strategies.push(new ExploreArea(locationInfo, itemInfo, itemsNeeded, state.state));
-			}
-			if(method.dropRates.location?.type === "fishing") {
-				// TODO: Check requirements
-				let locationInfo = await getLocationInfo(method.dropRates.location.name);
-				strategies.push(new NetFishing(locationInfo, itemInfo, itemsNeeded, state.state));
-				strategies.push(new ManualFishing(locationInfo, itemInfo, itemsNeeded, state.state));
-			}
-		}
-	}
+		return await tryToGetItem(state, itemInfo, requiredItem.quantity);
+	}))).flat());
 
 	let currentCompletionPercent = await getQuestCompletionPercent(state.state.inventory, objective.quest!!);
 
@@ -166,6 +128,58 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	return tryToCompleteObjective(bestStrategy!!, objective);
 }
 
+async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): Promise<Provider[]>{
+	let out: Provider[] = [];
+	let itemsNeeded = amount - state.state.inventory[item.id];
+
+	if(itemsNeeded <= 0) {
+		return out;
+	}
+
+	if(item.canBuy) {
+		out.push(new BuyItemStore(item, itemsNeeded, state.state));
+	}
+
+	// Below this point are recursive checks, so we quickly return if we have fast methods
+	if(out.length > 0){
+		return out;
+	}
+
+	// TODO: Wait for passive regen
+
+	if(item.canCraft) {
+		// TODO: Check requirements
+		out.push(new CraftItem(item, itemsNeeded, state.state));
+		out.push(...(await Promise.all(item.recipeItems.map(async (recipeItem) => {
+			let itemInfo = await getItemInfo(recipeItem.item.name);
+			return await tryToGetItem(state, itemInfo, recipeItem.quantity * itemsNeeded)
+		}))).flat());
+	}
+
+	for (let method of item.dropRatesItems) {
+		if (method.dropRates.seed) {
+			// TODO: Check requirements
+			let seedInfo = await getItemInfo(method.dropRates.seed.name);
+			let farmPlant = new FarmPlant(seedInfo, item, itemsNeeded, state.state);
+			out.push(...await tryToGetItem(state, seedInfo, farmPlant.getSeedNeeded()));
+			out.push(farmPlant);
+		}
+		if(method.dropRates.location?.type === "explore") {
+			// TODO: Check requirements
+			let locationInfo = await getLocationInfo(method.dropRates.location.name);
+			out.push(new ExploreArea(locationInfo, item, itemsNeeded, state.state));
+		}
+		if(method.dropRates.location?.type === "fishing") {
+			// TODO: Check requirements
+			let locationInfo = await getLocationInfo(method.dropRates.location.name);
+			out.push(new NetFishing(locationInfo, item, itemsNeeded, state.state));
+			out.push(new ManualFishing(locationInfo, item, itemsNeeded, state.state));
+		}
+	}
+
+	return out;
+}
+
 async function getQuestCompletionPercent(inventory: Uint16Array, quest: QuestInfo): Promise<number> {
 	let completions = [];
 
@@ -185,27 +199,44 @@ async function getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo, 
 	if(isNaN(amount)){
 		throw new Error("NaN is not supported")
 	}
-	console.log("We need item", item.id, amount);
 	if(amount <= 0 || inventory[item.id] >= amount) {
 		// We have enough items
 		return 1;
 	}
 
-	let out = inventory[item.id]/amount
+	let baseCompletion = inventory[item.id] / amount;
 	let itemsLeft = Math.max(0, amount - inventory[item.id]);
+	
+	let seedCompletion = 0;
+	let recipeCompletion = 0;
 
+	// Check seed completion
 	for(let dropRate of item.dropRatesItems){
 		if(dropRate.dropRates.seed !== null){
 			let seedInfo = await getItemInfo(dropRate.dropRates.seed!!.name);
-			// Count seed as 1% of a real item
-			out += await getItemCompletionPercent(inventory, seedInfo, Math.ceil(itemsLeft * dropRate.rate)) * 0.01;
+			let seedsNeeded = Math.ceil(itemsLeft * dropRate.rate);
+			let seedAvailability = await getItemCompletionPercent(inventory, seedInfo, seedsNeeded);
+			// Count seed as 50% of a real item
+			seedCompletion = seedAvailability * 0.5;
 			break;
 		}
 	}
-	for(let recipe of item.recipeItems){
-		let expectedQuantity = recipe.quantity * itemsLeft;
-		out += (itemsLeft / item.recipeItems.length) * Math.min(expectedQuantity, inventory[recipe.item.id]) / expectedQuantity;
+
+	// Check recipe completion
+	if(item.recipeItems.length > 0) {
+		let allComponentsCompletion = 1.0;
+		for(let recipe of item.recipeItems){
+			let expectedQuantity = recipe.quantity * itemsLeft;
+			let componentInfo = await getItemInfo(recipe.item.name);
+			let componentCompletion = await getItemCompletionPercent(inventory, componentInfo, expectedQuantity);
+			allComponentsCompletion *= componentCompletion;
+		}
+		// Count uncrafted items as 50% of real item
+		recipeCompletion = allComponentsCompletion * 0.50;
 	}
 
-	return out;
+	// Use the best completion method for remaining items
+	let remainingCompletion = Math.max(seedCompletion, recipeCompletion);
+	
+	return baseCompletion + (itemsLeft / amount) * remainingCompletion;
 }
