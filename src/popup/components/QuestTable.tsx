@@ -53,7 +53,7 @@ export default class QuestTable extends Component<Props, any> {
 				})}
 				{lastState.state.objectives.length > 0 ? (
 					<div class="bg-red-200 m-2 rounded-md border-1 border-red-500 p-2">
-						<strong class="text-red-700 text-base mb-2">Quest remaining</strong>
+						<strong class="text-red-700 text-base mb-2">Quest remaining ({lastState.state.objectives.length})</strong>
 						<ol class="list-decimal pl-6 leading-6">
 							{lastState.state.objectives.map((i) => <li>{i.quest?.name}</li>)}
 						</ol>

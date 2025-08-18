@@ -64,7 +64,7 @@ export default class MainApp extends Component<{}, State> {
 				<header class="bg-white p-2 border-b-1 border-b-slate-100">
 					<div class="font-bold">Farm RPG Guide</div>
 				</header>
-				{this.state.error ? <div class="bg-red-200 m-2 rounded-md border-1 border-red-500 p-2">{this.state.error}</div>}
+				{this.state.error ? <div class="bg-red-200 m-2 rounded-md border-1 border-red-500 p-2">{this.state.error}</div> : null}
 				<QuestTable state={this.state.state} finish={this.state.finish} />
 			</>
 		)

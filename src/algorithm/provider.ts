@@ -1,19 +1,23 @@
 import {enableMapSet, produce, WritableDraft} from "immer";
 import {
 	APPLE_CIDER_ID,
+	APPLE_ID,
 	ARNOLD_PALMER_ID,
 	COMPASS_ID,
 	DETECTOR_ID,
 	FISHING_NET_ID, GameplayError, GARY_CRUSHROOM_KEY_ID, GRUB_ID, GUMMY_WORM_ID, INFERNO_SPHERE_ID, IRON_ID,
 	LARGE_FISHING_NET_ID,
 	LAVA_SPHERE_ID,
+	LEMON_ID,
 	LEMONADE_ID, MAPPING_COMPASS_ID, MEALWORM_ID, MINNOW_ID, NAILS_ID,
+	ORANGE_ID,
 	ORANGE_JUICE_ID,
 	Provider,
 	SearchState, TRIBAL_MASK_ID, WATER_ORB_ID, WORM_ID
 } from "./types.ts";
 import {getItemInfo, ItemInfo, LocationInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {DropRatesItem} from "src/data/types/graphql.ts";
+import { getTimeUntilNextReset } from "./utils.ts";
 
 enableMapSet()
 
@@ -124,7 +128,7 @@ export class FarmPlant implements Provider {
 	}
 
 	toString(): string{
-		return `Farm ${this.#output.name} x ${this.#desired}`;
+		return `Farm ${this.#output.name} ×${this.#desired}`;
 	}
 
 	getTimeRequired(): number {
@@ -222,7 +226,7 @@ export class ExploreArea implements Provider {
 	}
 
 	toString(): string{
-		return `Explore ${this.#area.name} x ${Math.ceil(this.getAttemptsRequired())} to find ${this.#item.name} x ${this.#amount}`;
+		return `Explore ${this.#area.name} ×${Math.ceil(this.getAttemptsRequired())} — find ${this.#item.name} ×${this.#amount}`;
 	}
 
 	getTimeRequired(): number {
@@ -391,7 +395,7 @@ export class BuyItemStore implements Provider {
 	}
 
 	toString(): string {
-		return `Buy ${this.#item.name} x ${this.#amount} from Country Store`;
+		return `Buy ${this.#item.name} ×${this.#amount} (Country Store)`;
 	}
 }
 
@@ -459,7 +463,7 @@ export class ManualFishing implements Provider {
 	}
 
 	toString(): string{
-		return `Manual Fishing ${this.#area.name} x ${Math.ceil(this.getAttemptsRequired()/10)} to find ${this.#item.name}`;
+		return `Manual Fishing ${this.#area.name} ×${Math.ceil(this.getAttemptsRequired()/10)} for ${this.#item.name} ×${this.#amount}`;
 	}
 
 	getTimeRequired(): number {
@@ -563,7 +567,7 @@ export class NetFishing implements Provider {
 	}
 
 	toString(): string{
-		return `Net Fishing ${this.#area.name} x ${Math.ceil(this.getAttemptsRequired()/10)} to find ${this.#item.name}`;
+		return `Net Fishing ${this.#area.name} ×${Math.ceil(this.getAttemptsRequired()/10)} for ${this.#item.name} ×${this.#amount}`;
 	}
 
 	getTimeRequired(): number {
@@ -649,12 +653,25 @@ export class CraftItem implements Provider {
 		if(!this.#item.canCraft) {
 			throw new Error(`Item ${item.name} is not craftable`);
 		}
-		this.#amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
 		this.#lastState = state;
+		const maxCraftable = this.getCraftableAmount(desiredAmount);
+		this.#amount = Math.min(state.playerInfo.maxInventory, maxCraftable);
+	}
+
+	getCraftableAmount(desiredAmount: number): number {
+		if (this.#item.recipeItems.length === 0) {
+			return 0;
+		}
+
+		const craftableAmounts = this.#item.recipeItems.map((recipeItem) => {
+			return Math.floor(this.#lastState.inventory[recipeItem.item.id] / recipeItem.quantity);
+		});
+
+		return Math.min(desiredAmount, ...craftableAmounts);
 	}
 
 	toString(): string{
-		return `Craft ${this.#item.name} x ${this.#amount}`;
+		return `Craft ${this.#item.name} ×${this.#amount}`;
 	}
 
 	getTimeRequired(): number {
@@ -675,5 +692,47 @@ export class CraftItem implements Provider {
 
 			increaseInventoryItem(draft.inventory, this.#item.id, this.#amount, this.#lastState.playerInfo.maxInventory);
 		});
+	}
+}
+
+// export class FlourMill implements Provider {
+
+// }
+
+// export class FeedMill implements Provider {
+
+// }
+
+// export class FlourMill implements Provider {
+
+// }
+
+export class WaitForOrchard implements Provider {
+	#state: SearchState
+
+	constructor(state: SearchState){
+		this.#state = state;
+	}
+
+	getTimeRequired(): number {
+		// TODO: This doesn't handle well when multiple copies of this get used
+		return getTimeUntilNextReset();
+	}
+	
+	async nextState(): Promise<SearchState> {
+		if(this.#state.playerInfo.orchardApple === 0 && this.#state.playerInfo.orchardLemon === 0 && this.#state.playerInfo.orchardOrange === 0) {
+			throw new GameplayError("Orchard doesn't have trees");
+		}
+		
+		return produce(this.#state, (draft) => {
+			draft.inventory = draft.inventory.slice();
+			increaseInventoryItem(draft.inventory, APPLE_ID, this.#state.playerInfo.orchardApple, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, ORANGE_ID, this.#state.playerInfo.orchardOrange, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, LEMON_ID, this.#state.playerInfo.orchardLemon, this.#state.playerInfo.maxInventory);
+		})
+	}
+	
+	toString(): string {
+		return "Wait for Orchard to Grow"
 	}
 }

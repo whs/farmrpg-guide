@@ -4,13 +4,13 @@ import { getQuestInfo } from "../data/buddyfarm";
 import { Quest, QuestType } from "../types";
 
 export async function getSearchState(): Promise<SearchState> {
-	let { quests, inventory, maxInventorySize, silver, skills } = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills"]);
+	let db = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills", "coopEggs", "coopFeathers", "pastureMilk", "sawmillBoard", "sawmillWood", "hayfieldStraw", "quarryStone", "quarryCoal", "orchardApple", "orchardOrange", "orchardLemon"]);
 
 	return {
-		inventory: arrayToUint16(inventory as number[]),
-		silver,
+		inventory: arrayToUint16(db.inventory as number[]),
+		silver: db.silver,
 		objectives: await Promise.all(
-			(quests as Quest[])
+			(db.quests as Quest[])
 				.filter(quest => [QuestType.Normal, QuestType.Special].includes(quest.type))
 				.map(async (quest) => {
 					let info = await getQuestInfo(quest.name);
@@ -21,11 +21,23 @@ export async function getSearchState(): Promise<SearchState> {
 		completedObjectives: [],
 
 		playerInfo: {
-			maxInventory: maxInventorySize,
-			skills,
+			maxInventory: db.maxInventorySize,
+			skills: db.skills,
 			// TODO
 			farmSize: 28,
 			maxStamina: 30,
+
+			coopEggs: db.coopEggs || 0,
+			coopFeathers: db.coopFeathers || 0,
+			pastureMilk: db.pastureMilk || 0,
+			sawmillBoard: db.sawmillBoard || 0,
+			sawmillWood: db.sawmillWood || 0,
+			hayfieldStraw: db.hayfieldStraw || 0,
+			quarryStone: db.quarryStone || 0,
+			quarryCoal: db.quarryCoal || 0,
+			orchardApple: db.orchardApple || 0,
+			orchardOrange: db.orchardOrange || 0,
+			orchardLemon: db.orchardLemon || 0,
 		},
 	};
 }

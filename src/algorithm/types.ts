@@ -20,6 +20,18 @@ export interface PlayerInfo {
 	farmSize: number,
 	maxStamina: number,
 	skills: Skills,
+
+	coopEggs: number,
+	coopFeathers: number,
+	pastureMilk: number,
+	sawmillBoard: number,
+	sawmillWood: number,
+	hayfieldStraw: number,
+	quarryStone: number,
+	quarryCoal: number,
+	orchardApple: number,
+	orchardOrange: number,
+	orchardLemon: number,
 }
 
 export interface Skills {
@@ -58,6 +70,9 @@ export const LAVA_SPHERE_ID = 220;
 export const TRIBAL_MASK_ID = 313;
 export const MAPPING_COMPASS_ID = 476;
 export const WATER_ORB_ID = 701;
+export const APPLE_ID = 44;
+export const ORANGE_ID = 61;
+export const LEMON_ID = 62;
 
 export class GameplayError extends Error {
 }
