@@ -19,6 +19,16 @@ export interface PlayerInfo {
 	maxInventory: number,
 	farmSize: number,
 	maxStamina: number,
+	skills: Skills,
+}
+
+export interface Skills {
+	farming: number,
+	fishing: number,
+	crafting: number,
+	exploring: number,
+	cooking?: number,
+	mining?: number,
 }
 
 export interface Provider {
@@ -40,6 +50,14 @@ export const GUMMY_WORM_ID = 277;
 export const MEALWORM_ID = 498;
 export const IRON_ID = 22;
 export const NAILS_ID = 38;
+export const INFERNO_SPHERE_ID = 169;
+export const COMPASS_ID = 315;
+export const DETECTOR_ID = 613;
+export const GARY_CRUSHROOM_KEY_ID = 1179;
+export const LAVA_SPHERE_ID = 220;
+export const TRIBAL_MASK_ID = 313;
+export const MAPPING_COMPASS_ID = 476;
+export const WATER_ORB_ID = 701;
 
 export class GameplayError extends Error {
 }

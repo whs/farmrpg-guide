@@ -1,7 +1,5 @@
 import {Quest, QuestType} from "../types.ts";
 
-let pages = document.querySelector("#fireworks .pages")!!;
-
 function getMutationCenterPage(records: MutationRecord[]){
 	for(let record of records){
 		if(record.addedNodes.length === 0){
@@ -85,6 +83,16 @@ async function handleQuestsPage(page: HTMLDivElement) {
 	})
 }
 
+let skillRegex = /([A-Za-z]+)Level[ ]+([0-9]+)/;
+async function handleIndexPage(page: HTMLDivElement){
+	let skillLevels: Record<string, number> = {};
+	for(let skill of page.querySelectorAll('a[href^="progress.php?type="]')){
+		let parsed = skillRegex.exec(skill.parentElement!!.textContent)!!;
+		skillLevels[parsed[1].toLowerCase()] = parseInt(parsed[2], 10);
+	}
+	chrome.storage.local.set({"skills": skillLevels});
+}
+
 let pageChangeMonitor = new MutationObserver((records) => {
 	let silverIcon = document.querySelector('a[href="bank.php"] img[alt="Silver"]');
 	if(silverIcon !== null){
@@ -99,11 +107,18 @@ let pageChangeMonitor = new MutationObserver((records) => {
 
 	if(page.dataset["page"] === "inventory" || page.querySelector(".navbar-on-center .center")?.textContent === "My Inventory"){
 		handleInventoryPage(page);
-	}
-	if(page.dataset["page"] === "quests" || page.querySelector(".navbar-on-center .center")?.textContent === "Help Needed"){
+	}else if(page.dataset["page"] === "quests" || page.querySelector(".navbar-on-center .center")?.textContent === "Help Needed"){
 		handleQuestsPage(page);
+	}else if(page.dataset["page"] === "index-1"){
+		handleIndexPage(page);
 	}
 });
+let pages = document.querySelector("#fireworks .pages")!!;
 pageChangeMonitor.observe(pages, {
 	childList: true,
 });
+
+let indexPage = document.querySelector('div[page="index-1"]');
+if(indexPage) {
+	handleIndexPage(indexPage as HTMLDivElement);
+}

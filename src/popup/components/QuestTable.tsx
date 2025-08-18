@@ -11,7 +11,11 @@ interface Props {
 export default class QuestTable extends Component<Props, any> {
 	render() {
 		if(!this.props.state){
-			return <div>Computing...</div>;
+			return (
+				<div class="bg-white m-3 rounded-md border-1 border-slate-200 p-2">
+					Computing...
+				</div>
+			);
 		}
 
 		let lastActionLength = 0;
@@ -35,11 +39,11 @@ export default class QuestTable extends Component<Props, any> {
 					}
 					lastCompletedQuestName = questName;
 					return (
-						<div class="bg-white m-2 rounded-md border-1 border-slate-200 p-2">
+						<div class="bg-white m-3 rounded-md border-1 border-slate-200 p-2">
 							<div class="flex flex-row items-center font-bold mb-2">
 								<div class="bg-slate-300 p-1 rounded-md mr-2 px-2">{index + 1}</div>
 								<div class="grow text-base">{questName}</div>
-								<div class="text-xs font-medium border-1 border-slate-200 p-1 rounded-md">{formatDuration(timeTaken)}</div>
+								<div class="text-xs font-medium border-1 border-slate-200 p-1 rounded-md bg-slate-100">{formatDuration(timeTaken)}</div>
 							</div>
 							<ol class="list-decimal pl-6 leading-6">
 								{newActions.map((i) => (<li>{i.toString()}</li>))}

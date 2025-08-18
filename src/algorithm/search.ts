@@ -148,7 +148,6 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 	// TODO: Wait for passive regen
 
 	if(item.canCraft) {
-		// TODO: Check requirements
 		out.push(new CraftItem(item, itemsNeeded, state.state));
 		out.push(...(await Promise.all(item.recipeItems.map(async (recipeItem) => {
 			let itemInfo = await getItemInfo(recipeItem.item.name);
@@ -165,12 +164,10 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 			out.push(farmPlant);
 		}
 		if(method.dropRates.location?.type === "explore") {
-			// TODO: Check requirements
 			let locationInfo = await getLocationInfo(method.dropRates.location.name);
 			out.push(new ExploreArea(locationInfo, item, itemsNeeded, state.state));
 		}
 		if(method.dropRates.location?.type === "fishing") {
-			// TODO: Check requirements
 			let locationInfo = await getLocationInfo(method.dropRates.location.name);
 			out.push(new NetFishing(locationInfo, item, itemsNeeded, state.state));
 			out.push(new ManualFishing(locationInfo, item, itemsNeeded, state.state));

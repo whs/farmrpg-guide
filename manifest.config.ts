@@ -16,11 +16,10 @@ export default defineManifest({
 	},
 	content_scripts: [{
 		js: ['src/content/main.ts'],
-		matches: ['https://farmrpg.com/*', 'https://www.farmrpg.com/*'],
+		matches: ['https://farmrpg.com/', 'https://www.farmrpg.com/', 'https://farmrpg.com/index.php', 'https://www.farmrpg.com/index.php'],
 		run_at: "document_idle",
 	}],
 	permissions: [
-		"webRequest",
 		"storage",
 	],
 	host_permissions: [

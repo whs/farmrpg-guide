@@ -6,6 +6,7 @@ import QuestTable from "./QuestTable";
 interface State {
 	state: NextState[]|null,
 	finish: boolean,
+	error: string|null,
 }
 
 export default class MainApp extends Component<{}, State> {
@@ -14,6 +15,7 @@ export default class MainApp extends Component<{}, State> {
 	state: State = {
 		state: null,
 		finish: false,
+		error: null,
 	}
 	
 	constructor() {
@@ -22,7 +24,12 @@ export default class MainApp extends Component<{}, State> {
 	}
 
 	async search() {
-		let searchState = await getSearchState();
+		try {
+			var searchState = await getSearchState();
+		}catch(_) {
+			this.setState({error: "Game information not loaded - visit the inventory and quest pages"});
+			return;
+		}
 		let questStages: NextState[] = [];
 		let previousCompletedCount = 0;
 		let lastState = await greedySearchState(searchState, (state) => {
@@ -57,6 +64,7 @@ export default class MainApp extends Component<{}, State> {
 				<header class="bg-white p-2 border-b-1 border-b-slate-100">
 					<div class="font-bold">Farm RPG Guide</div>
 				</header>
+				{this.state.error ? <div class="bg-red-200 m-2 rounded-md border-1 border-red-500 p-2">{this.state.error}</div>}
 				<QuestTable state={this.state.state} finish={this.state.finish} />
 			</>
 		)

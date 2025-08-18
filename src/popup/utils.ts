@@ -4,7 +4,7 @@ import { getQuestInfo } from "../data/buddyfarm";
 import { Quest, QuestType } from "../types";
 
 export async function getSearchState(): Promise<SearchState> {
-	let { quests, inventory, maxInventorySize, silver } = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver"]);
+	let { quests, inventory, maxInventorySize, silver, skills } = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills"]);
 
 	return {
 		inventory: arrayToUint16(inventory as number[]),
@@ -22,6 +22,7 @@ export async function getSearchState(): Promise<SearchState> {
 
 		playerInfo: {
 			maxInventory: maxInventorySize,
+			skills,
 			// TODO
 			farmSize: 28,
 			maxStamina: 30,

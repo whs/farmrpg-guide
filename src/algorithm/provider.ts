@@ -2,12 +2,15 @@ import {enableMapSet, produce, WritableDraft} from "immer";
 import {
 	APPLE_CIDER_ID,
 	ARNOLD_PALMER_ID,
-	FISHING_NET_ID, GameplayError, GRUB_ID, GUMMY_WORM_ID, IRON_ID,
+	COMPASS_ID,
+	DETECTOR_ID,
+	FISHING_NET_ID, GameplayError, GARY_CRUSHROOM_KEY_ID, GRUB_ID, GUMMY_WORM_ID, INFERNO_SPHERE_ID, IRON_ID,
 	LARGE_FISHING_NET_ID,
-	LEMONADE_ID, MEALWORM_ID, MINNOW_ID, NAILS_ID,
+	LAVA_SPHERE_ID,
+	LEMONADE_ID, MAPPING_COMPASS_ID, MEALWORM_ID, MINNOW_ID, NAILS_ID,
 	ORANGE_JUICE_ID,
 	Provider,
-	SearchState, WORM_ID
+	SearchState, TRIBAL_MASK_ID, WATER_ORB_ID, WORM_ID
 } from "./types.ts";
 import {getItemInfo, ItemInfo, LocationInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {DropRatesItem} from "src/data/types/graphql.ts";
@@ -176,6 +179,20 @@ export class FarmPlant implements Provider {
 	}
 }
 
+const exploreZoneLevel: Record<string, number> = {
+	"Forest": 20,
+	"Small Spring": 5,
+	"Highland Hills": 10,
+	"Cane Pole Ridge": 20,
+	"Misty Forest": 30,
+	"Black Rock Canyon": 40,
+	"Mount Banon": 50,
+	"Ember Lagoon": 60,
+	"Whispering Creek": 70,
+	"Jundland Desert": 80,
+	"Gary's Crushroom": 90,
+}
+
 export class ExploreArea implements Provider {
 	#area: LocationInfo;
 	#item: ItemInfo;
@@ -283,7 +300,22 @@ export class ExploreArea implements Provider {
 	}
 
 	async nextState(): Promise<SearchState> {
+		// Check prerequisites
+		if(exploreZoneLevel[this.#area.name] > this.#lastState.playerInfo.skills.exploring){
+			throw new GameplayError(`Area ${this.#area.name} require Explore level ${exploreZoneLevel[this.#area.name]}`);
+		}
+		if(this.#area.name === "Ember Lagoon" && this.#lastState.inventory[INFERNO_SPHERE_ID] === 0) {
+			throw new GameplayError("No Inferno Sphere");
+		}else if(this.#area.name === "Whispering Creek" && this.#lastState.inventory[COMPASS_ID] === 0) {
+			throw new GameplayError("No Compass");
+		}else if(this.#area.name === "Jundland Desert" && this.#lastState.inventory[DETECTOR_ID] === 0) {
+			throw new GameplayError("No Y73841 Detector");
+		}else if(this.#area.name === "Gary's Crushroom" && this.#lastState.inventory[GARY_CRUSHROOM_KEY_ID] === 0) {
+			throw new GameplayError("No Gary's Crushroom Key");
+		}
+		
 		return produce(this.#lastState, (draft) => {
+
 			draft.inventory = draft.inventory.slice();
 			if(this.#consumablesUsed === null){
 				// The value is computed as side effect of this function
@@ -363,6 +395,36 @@ export class BuyItemStore implements Provider {
 	}
 }
 
+const fishingZoneLevel: Record<string, number> = {
+  "Small Pond": 1,
+  "Farm Pond": 5,
+  "Forest Pond": 5,
+  "Lake Tempest": 10,
+  "Small Island": 20,
+  "Crystal River": 30,
+  "Emerald Beach": 40,
+  "Vast Ocean": 50,
+  "Lake Minerva": 60,
+  "Large Island": 70,
+  "Pirate's Cove": 80,
+  "Glacier Lake": 90,
+}
+
+function checkFishingZone(area: LocationInfo, state: SearchState) {
+	if (fishingZoneLevel[area.name] > state.playerInfo.skills.fishing) {
+		throw new GameplayError(`Area ${area.name} requires Fishing level ${fishingZoneLevel[area.name]}`);
+	}
+	if(area.name === "Lake Minerva" && state.inventory[LAVA_SPHERE_ID] === 0) {
+		throw new GameplayError("No Lava Sphere");
+	}else if(area.name === "Large Island" && state.inventory[TRIBAL_MASK_ID] === 0){
+		throw new GameplayError("No Tribal Mask");
+	}else if(area.name === "Pirate's Cove" && state.inventory[MAPPING_COMPASS_ID] === 0){
+		throw new GameplayError("No Mapping Compass");
+	}else if(area.name === "Glacier Lake" && state.inventory[WATER_ORB_ID] === 0){
+		throw new GameplayError("No Water Orb");
+	}
+}
+
 export class ManualFishing implements Provider {
 	#area: LocationInfo;
 	#item: ItemInfo;
@@ -413,6 +475,8 @@ export class ManualFishing implements Provider {
 	}
 
 	async nextState(): Promise<SearchState> {
+		checkFishingZone(this.#area, this.#lastState);
+		
 		return produce(this.#lastState, (draft) => {
 			draft.inventory = draft.inventory.slice();
 
@@ -513,6 +577,8 @@ export class NetFishing implements Provider {
 	}
 	
 	async nextState(): Promise<SearchState> {
+		checkFishingZone(this.#area, this.#lastState);
+
 		return produce(this.#lastState, (draft) => {
 			draft.inventory = draft.inventory.slice();
 			
@@ -596,6 +662,10 @@ export class CraftItem implements Provider {
 	}
 
 	async nextState(): Promise<SearchState> {
+		if (this.#item.craftingLevel > this.#lastState.playerInfo.skills.crafting) {
+			throw new GameplayError(`Item needs ${this.#item.craftingLevel} crafting`);
+		}
+
 		return produce(this.#lastState, (draft) => {
 			draft.inventory = draft.inventory.slice();
 
