@@ -1,6 +1,6 @@
-import {GameplayError, MAX_ITEMS, Objective, Provider, SearchState} from "./types.ts";
+import {FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Provider, SearchState, STEAK_ID, STEAK_KABOB_ID} from "./types.ts";
 import {getItemInfo, getLocationInfo, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
-import {BuyItemStore, CraftItem, ExploreArea, FarmPlant, ManualFishing, NetFishing, SubmitQuest, WaitFor10Min, WaitForHourly, WaitForReset} from "./provider.ts";
+import {BuyItemStore, BuySteak, BuySteakKabob, CraftItem, ExploreArea, FarmPlant, FeedMill, FlourMill, ManualFishing, NetFishing, SubmitQuest, WaitFor10Min, WaitForHourly, WaitForReset} from "./provider.ts";
 import {castDraft, produce} from "immer";
 
 export function arrayToUint16(inventory: number[]){
@@ -146,6 +146,21 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 	// Below this point are recursive checks, so we quickly return if we have fast methods
 	if(out.length > 0){
 		return out;
+	}
+
+	if(item.id === FLOUR_ID) {
+		out.push(new FlourMill(itemsNeeded, state.state));
+		out.push(...await tryToGetItem(state, await getItemInfo("Wheat"), Math.ceil(itemsNeeded/14.4)));
+	} else if (item.id === FEED_ID) {
+		let allFeedInfo = await Promise.all(Object.keys(FeedMill.feedTable).map((itemName) => getItemInfo(itemName)));
+		for(let feed of allFeedInfo) {
+			out.push(new FeedMill(feed, itemsNeeded, state.state));
+			out.push(...await tryToGetItem(state, feed, Math.ceil(itemsNeeded/FeedMill.feedTable[feed.name])));
+		}
+	} else if (item.id === STEAK_ID) {
+		out.push(new BuySteak(itemsNeeded, state.state));
+	} else if (item.id === STEAK_KABOB_ID) {
+		out.push(new BuySteakKabob(itemsNeeded, state.state));
 	}
 
 	if(item.canCraft) {

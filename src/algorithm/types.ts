@@ -31,7 +31,8 @@ export interface PlayerInfo {
 	orchardApple: number,
 	orchardOrange: number,
 	orchardLemon: number,
-
+	vineyardGrapes: number,
+	
 	// Hourly
 	sawmillBoard: number,
 	sawmillWood: number,
@@ -89,6 +90,12 @@ export const WOOD_ID = 35;
 export const STRAW_ID = 128;
 export const STONE_ID = 40;
 export const COAL_ID = 103;
+export const GRAPES_ID = 120;
+export const WHEAT_ID = 71;
+export const FLOUR_ID = 276;
+export const FEED_ID = 275;
+export const STEAK_ID = 137;
+export const STEAK_KABOB_ID = 197;
 
 export class GameplayError extends Error {
 }

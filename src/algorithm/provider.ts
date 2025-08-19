@@ -9,7 +9,8 @@ import {
 	DETECTOR_ID,
 	EGGS_ID,
 	FEATHERS_ID,
-	FISHING_NET_ID, GameplayError, GARY_CRUSHROOM_KEY_ID, GRUB_ID, GUMMY_WORM_ID, INFERNO_SPHERE_ID, IRON_ID,
+	FEED_ID,
+	FISHING_NET_ID, FLOUR_ID, GameplayError, GARY_CRUSHROOM_KEY_ID, GRAPES_ID, GRUB_ID, GUMMY_WORM_ID, INFERNO_SPHERE_ID, IRON_ID,
 	LARGE_FISHING_NET_ID,
 	LAVA_SPHERE_ID,
 	LEMON_ID,
@@ -17,7 +18,7 @@ import {
 	ORANGE_ID,
 	ORANGE_JUICE_ID,
 	Provider,
-	SearchState, STONE_ID, STRAW_ID, TRIBAL_MASK_ID, WATER_ORB_ID, WOOD_ID, WORM_ID
+	SearchState, STEAK_ID, STEAK_KABOB_ID, STONE_ID, STRAW_ID, TRIBAL_MASK_ID, WATER_ORB_ID, WHEAT_ID, WOOD_ID, WORM_ID
 } from "./types.ts";
 import {getItemInfo, ItemInfo, LocationInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {DropRatesItem} from "src/data/types/graphql.ts";
@@ -142,6 +143,7 @@ export class FarmPlant implements Provider {
 
 	private getFarmingTimeReduction(): number {
 		let perks = this.#lastState.playerInfo.perks;
+		let goldPerks = this.#lastState.playerInfo.goldPerks;
 		let booster = 0;
 		if(perks.includes("Quicker Farming I")) {
 			booster += 0.05;
@@ -154,6 +156,12 @@ export class FarmPlant implements Provider {
 		}
 		if(perks.includes("Quicker Farming IV")) {
 			booster += 0.20;
+		}
+		if(goldPerks.includes("Irrigation System I")) {
+			booster += 0.1;
+		}
+		if(goldPerks.includes("Irrigation System II")) {
+			booster += 0.2;
 		}
 		if(this.#output.name === "Corn"){
 			if(perks.includes("Quicker Corn I")) {
@@ -290,32 +298,40 @@ export class ExploreArea implements Provider {
 		
 		// Use Apple Cider (1010 attempts instantly, but requires stamina)
 		let appleCiderAvailable = this.#lastState.inventory[APPLE_CIDER_ID];
-		const ATTEMPTS_PER_APPLE_CIDER = 1010 * STAMINA_PER_ATTEMPT;
-		let appleCiderToUse = Math.min(appleCiderAvailable, Math.floor(Math.min(attemptsLeft, stamina) / ATTEMPTS_PER_APPLE_CIDER));
+		let minStaminaForCider = 1010 * STAMINA_PER_ATTEMPT;
+		let attemptsPerAppleCider = 1010 * STAMINA_PER_ATTEMPT;
+		if (this.#lastState.playerInfo.goldPerks.includes("Cinnamon Sticks")) {
+			attemptsPerAppleCider *= 1.25;
+		}
+		let appleCiderToUse = Math.min(appleCiderAvailable, Math.floor(Math.min(attemptsLeft, stamina) / attemptsPerAppleCider));
 		if (appleCiderToUse > 0) {
 			this.#consumablesUsed.set(APPLE_CIDER_ID, appleCiderToUse);
-			attemptsLeft -= ATTEMPTS_PER_APPLE_CIDER * appleCiderToUse;
-			stamina -= Math.ceil(ATTEMPTS_PER_APPLE_CIDER * appleCiderToUse * (1 - staminaReduction));
+			attemptsLeft -= attemptsPerAppleCider * appleCiderToUse;
+			stamina -= Math.ceil(minStaminaForCider * appleCiderToUse * (1 - staminaReduction));
 			timeCost += appleCiderToUse * 500;
 		}
 		
 		// Use Arnold Palmer (200 attempts instantly)
-		const ATTEMPTS_PER_LEMONADE = 10;
-		const ATTEMPTS_PER_AP = 20 * ATTEMPTS_PER_LEMONADE;
+		let attemptsPerLemonade = 10;
+		if (this.#lastState.playerInfo.goldPerks.includes("Lemon Squeezer")) {
+			attemptsPerLemonade = 20;
+		}
+		let attemptsPerAP = 20 * attemptsPerLemonade;
+		
 		let arnoldPalmerAvailable = this.#lastState.inventory[ARNOLD_PALMER_ID];
-		let arnoldPalmerToUse = Math.min(arnoldPalmerAvailable, Math.ceil(attemptsLeft / ATTEMPTS_PER_AP));
+		let arnoldPalmerToUse = Math.min(arnoldPalmerAvailable, Math.ceil(attemptsLeft / attemptsPerAP));
 		if (arnoldPalmerToUse > 0) {
 			this.#consumablesUsed.set(ARNOLD_PALMER_ID, arnoldPalmerToUse);
-			attemptsLeft -= ATTEMPTS_PER_AP * arnoldPalmerToUse;
+			attemptsLeft -= attemptsPerAP * arnoldPalmerToUse;
 			timeCost += arnoldPalmerToUse * 500;
 		}
 		
 		// Use Lemonade (10 attempts instantly)
 		let lemonadeAvailable = this.#lastState.inventory[LEMONADE_ID];
-		let lemonadeToUse = Math.min(lemonadeAvailable, Math.ceil(attemptsLeft / ATTEMPTS_PER_LEMONADE));
+		let lemonadeToUse = Math.min(lemonadeAvailable, Math.ceil(attemptsLeft / attemptsPerLemonade));
 		if (lemonadeToUse > 0) {
 			this.#consumablesUsed.set(LEMONADE_ID, lemonadeToUse);
-			attemptsLeft -= ATTEMPTS_PER_LEMONADE * lemonadeToUse;
+			attemptsLeft -= attemptsPerLemonade * lemonadeToUse;
 			timeCost += lemonadeToUse * 500;
 		}
 		
@@ -453,7 +469,7 @@ export class BuyItemStore implements Provider {
 	}
 
 	toString(): string {
-		return `Buy ${this.item.name} ×${this.#amount} (Country Store)`;
+		return `Buy ${this.item.name} ×${this.#amount}`;
 	}
 }
 
@@ -628,8 +644,16 @@ export class NetFishing implements Provider {
 		return `Net Fishing ${this.#area.name} ×${Math.ceil(this.getAttemptsRequired()/10)} for ${this.#item.name} ×${this.#amount}`;
 	}
 
+	getRollPerNet(): number {
+		if(this.#lastState.playerInfo.goldPerks.includes("Reinforced Netting")) {
+			return 15;
+		}
+
+		return 10;
+	}
+
 	getTimeRequired(): number {
-		let rollsNeeded = this.getAttemptsRequired() / 10;
+		let rollsNeeded = this.getAttemptsRequired() / this.getRollPerNet();
 		// 300 ms per net use - rough estimation without addressing large nets
 		return Math.ceil(rollsNeeded * 300);
 	}
@@ -646,7 +670,7 @@ export class NetFishing implements Provider {
 			
 			let rollsNeeded = this.getAttemptsRequired();
 			let actualRolls = 0;
-			let rollsPerNet = 10;
+			let rollsPerNet = this.getRollPerNet();
 			let rollsPerLargeNet = 25 * rollsPerNet;
 			
 			// Try large net
@@ -720,6 +744,9 @@ export class CraftItem implements Provider {
 		if(state.playerInfo.perks.includes("Resource Saver I")) {
 			resourceSaverBonus += 0.1;
 		}
+		if(state.playerInfo.goldPerks.includes("Resource Saver II")) {
+			resourceSaverBonus += 0.15;
+		}
 
 		this.#craftTimes = Math.ceil(this.#amount / (1 + resourceSaverBonus));
 	}
@@ -761,13 +788,87 @@ export class CraftItem implements Provider {
 	}
 }
 
-// export class FlourMill implements Provider {
+export class FlourMill implements Provider {
+	#amount: number;
+	#state: SearchState;
+	
+	constructor(desiredAmount: number, state: SearchState) {
+		this.#amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
+		this.#state = state;
+	}
 
-// }
+	#getFlourPerMinute(): number {
+		if(this.#state.playerInfo.goldPerks.includes("Flour Power")) {
+			return 2;
+		}
 
-// export class FeedMill implements Provider {
+		return 1;
+	}
 
-// }
+	toString(): string{
+		return `Produce Flour ×${this.#amount}`;
+	}
+
+	getTimeRequired(): number {
+		return (this.#amount / this.#getFlourPerMinute()) * 60000;
+	}
+
+	async nextState(): Promise<SearchState> {
+		return produce(this.#state, (draft) => {
+			draft.inventory = draft.inventory.slice();
+			increaseInventoryItem(draft.inventory, WHEAT_ID, -Math.ceil(this.#amount/14.4), this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, FLOUR_ID, this.#amount, this.#state.playerInfo.maxInventory);
+		});
+	}
+}
+
+export class FeedMill implements Provider {
+	#input: ItemInfo;
+	#amount: number;
+	#state: SearchState;
+
+	static feedTable: Record<string, number> = {
+		"Watermelon": 1,
+		"Corn": 2,
+		"Cabbage": 3,
+		"Pine Tree": 4,
+		"Pumpkin": 5,
+		"Wheat": 12,
+		"Broccoli": 24,
+	};
+	
+	constructor(inputCrop: ItemInfo, desiredAmount: number, state: SearchState) {
+		this.#input = inputCrop;
+		this.#amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
+		this.#state = state;
+	}
+
+	#getFeedPerMinute(): number {
+		if(this.#state.playerInfo.goldPerks.includes("Feed Boost")) {
+			return 2;
+		}
+
+		return 1;
+	}
+
+	toString(): string{
+		return `Produce Feed ×${this.#amount} from ${this.#input.name}`;
+	}
+
+	getTimeRequired(): number {
+		return (this.#amount / this.#getFeedPerMinute()) * 60000;
+	}
+
+	async nextState(): Promise<SearchState> {
+		return produce(this.#state, (draft) => {
+			draft.inventory = draft.inventory.slice();
+			let producePerInput = FeedMill.feedTable[this.#input.name];
+			let inputRequired = Math.ceil(this.#amount / producePerInput);
+			increaseInventoryItem(draft.inventory, this.#input.id, -inputRequired, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, FEED_ID, this.#amount, this.#state.playerInfo.maxInventory);
+		});
+	}
+}
 
 export class WaitForReset implements Provider {
 	#state: SearchState
@@ -787,12 +888,14 @@ export class WaitForReset implements Provider {
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
 			draft.inventory = draft.inventory.slice();
+			// Trees already include the perk bonuses
 			increaseInventoryItem(draft.inventory, APPLE_ID, this.#state.playerInfo.orchardApple, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, ORANGE_ID, this.#state.playerInfo.orchardOrange, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, LEMON_ID, this.#state.playerInfo.orchardLemon, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, EGGS_ID, this.#state.playerInfo.coopEggs, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, FEATHERS_ID, this.#state.playerInfo.coopFeathers, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, MILK_ID, this.#state.playerInfo.pastureMilk, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, GRAPES_ID, this.#state.playerInfo.vineyardGrapes, this.#state.playerInfo.maxInventory);
 			draft.waitedForReset = true;
 		})
 	}
@@ -849,5 +952,59 @@ export class WaitFor10Min implements Provider {
 	
 	toString(): string {
 		return "Wait for 10 minutes"
+	}
+}
+
+export class BuySteak implements Provider {
+	#state: SearchState
+	#amount: number;
+
+	constructor(amount: number, state: SearchState){
+		this.#amount = amount;
+		this.#state = state;
+	}
+
+	getTimeRequired(): number {
+		return 30000;
+	}
+	
+	async nextState(): Promise<SearchState> {
+		return produce(this.#state, (draft) => {
+			// Bill for max price
+			increaseSilver(draft, 75000 * this.#amount)
+			draft.inventory = draft.inventory.slice();
+			increaseInventoryItem(draft.inventory, STEAK_ID, this.#amount, this.#state.playerInfo.maxInventory);
+		})
+	}
+	
+	toString(): string {
+		return "Buy Steak ×${this.#amount}"
+	}
+}
+
+export class BuySteakKabob implements Provider {
+	#state: SearchState
+	#amount: number;
+
+	constructor(amount: number, state: SearchState){
+		this.#amount = amount;
+		this.#state = state;
+	}
+
+	getTimeRequired(): number {
+		return 30000;
+	}
+	
+	async nextState(): Promise<SearchState> {
+		return produce(this.#state, (draft) => {
+			// Bill for max price
+			increaseSilver(draft, 12000 * this.#amount)
+			draft.inventory = draft.inventory.slice();
+			increaseInventoryItem(draft.inventory, STEAK_KABOB_ID, this.#amount, this.#state.playerInfo.maxInventory);
+		})
+	}
+	
+	toString(): string {
+		return "Buy Steak Kabob ×${this.#amount}"
 	}
 }

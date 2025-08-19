@@ -4,7 +4,7 @@ import { getQuestInfo } from "../data/buddyfarm";
 import { Quest, QuestType } from "../types";
 
 export async function getSearchState(): Promise<SearchState> {
-	let db = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills", "coopEggs", "coopFeathers", "pastureMilk", "sawmillBoard", "sawmillWood", "hayfieldStraw", "quarryStone", "quarryCoal", "orchardApple", "orchardOrange", "orchardLemon", "farmSize", "perks", "goldPerks"]);
+	let db = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills", "coopEggs", "coopFeathers", "pastureMilk", "sawmillBoard", "sawmillWood", "hayfieldStraw", "quarryStone", "quarryCoal", "orchardApple", "orchardOrange", "orchardLemon", "vineyardGrapes", "farmSize", "perks", "goldPerks"]);
 
 	return {
 		inventory: arrayToUint16(db.inventory as number[]),
@@ -27,7 +27,7 @@ export async function getSearchState(): Promise<SearchState> {
 			// TODO
 			maxStamina: 30,
 			perks: db.perks || [],
-			goldPerks: [],
+			goldPerks: db.goldPerks || [],
 
 			coopEggs: db.coopEggs || 0,
 			coopFeathers: db.coopFeathers || 0,
@@ -40,6 +40,7 @@ export async function getSearchState(): Promise<SearchState> {
 			orchardApple: db.orchardApple || 0,
 			orchardOrange: db.orchardOrange || 0,
 			orchardLemon: db.orchardLemon || 0,
+			vineyardGrapes: db.vineyardGrapes || 0,
 		},
 	};
 }

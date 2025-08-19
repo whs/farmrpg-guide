@@ -182,18 +182,41 @@ async function handleOrchardPage(page: HTMLDivElement) {
 	});
 }
 
+const grapesRegex = /Your vineyard will generate grapes every day.[ ]+Currently generating ([0-9]+) per day/;
+async function handleVineyardPage(_: HTMLDivElement) {
+	let pageContent = document.body.textContent;
+	let grapes = grapesRegex.exec(pageContent);
+	chrome.storage.local.set({
+		vineyardGrapes: grapes ? parseInt(grapes[1], 10) : 0,
+	});
+}
+
 async function handlePerksPage(page: HTMLDivElement) {
-  let buttons = page.querySelectorAll('.btnblue');
-  let perks = [];
+	let buttons = page.querySelectorAll('.btnblue');
+	let perks = new Set<string>();
 
-  for (const button of buttons) {
-    if (button.textContent.includes('Unlocked')) {
-      let perkName = button.closest('li')!!.querySelector('strong')!!.textContent;
-      perks.push(perkName);
-    }
-  }
+	for (let button of buttons) {
+		if (button.textContent.includes('Unlocked')) {
+			let perkName = button.closest('li')!!.querySelector('strong')!!.textContent;
+			perks.add(perkName);
+		}
+	}
 
-  chrome.storage.local.set({ perks });
+	chrome.storage.local.set({ perks: Array.from(perks) });
+}
+
+async function handleSupplyPage(page: HTMLDivElement) {
+	let buttons = page.querySelectorAll('.btnblue');
+	let perks = new Set<string>();
+
+	for (let button of buttons) {
+		if (button.textContent?.includes('Unlocked')) {
+			let perkName = button.closest('li')!!.querySelector('strong')!!.textContent;
+			perks.add(perkName);
+		}
+	}
+
+	chrome.storage.local.set({ goldPerks: Array.from(perks) });
 }
 
 let pageChangeMonitor = new MutationObserver((records) => {
@@ -226,6 +249,8 @@ let pageChangeMonitor = new MutationObserver((records) => {
 		handleIndexPage(page);
 	} else if (page.dataset['page'] === 'perks') {
 		handlePerksPage(page);
+	} else if (page.dataset['page'] === 'supply') {
+		handleSupplyPage(page);
 	} else if (page.dataset['page'] === 'coop') {
 		handleCoopPage(page);
 	} else if (page.dataset['page'] === 'pasture') {
@@ -238,6 +263,8 @@ let pageChangeMonitor = new MutationObserver((records) => {
 		handleQuarryPage(page);
 	} else if (page.dataset['page'] === 'orchard') {
 		handleOrchardPage(page);
+	} else if (page.dataset['page'] === 'vineyard') {
+		handleVineyardPage(page);
 	}
 });
 let pages = document.querySelector('#fireworks .pages')!!;
