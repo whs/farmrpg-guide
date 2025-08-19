@@ -22,6 +22,7 @@
     "vite-plugin-zip-pack": "^1.2.4"
   },
   "dependencies": {
+    "es-toolkit": "^1.39.10",
     "immer": "^10.1.1",
     "preact": "^10.27.0"
   }

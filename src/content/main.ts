@@ -97,6 +97,7 @@ async function handleQuestsPage(page: HTMLDivElement) {
 }
 
 const skillRegex = /([A-Za-z]+)Level[ ]+([0-9]+)/;
+const growingRegex = /([0-9]+) (Growing|READY!)/;
 async function handleIndexPage(page: HTMLDivElement) {
 	let skillLevels: Record<string, number> = {};
 	for (let skill of page.querySelectorAll('a[href^="progress.php?type="]')) {
@@ -104,10 +105,17 @@ async function handleIndexPage(page: HTMLDivElement) {
 		skillLevels[parsed[1].toLowerCase()] = parseInt(parsed[2], 10);
 	}
 	chrome.storage.local.set({skills: skillLevels});
+
+	let growing = growingRegex.exec(document.querySelector(".ready[data-id]")!!.textContent)!!;
+	let {farmSize} = await chrome.storage.local.get(["farmSize"]);
+	let newFarmSize = Math.max(parseInt(growing[1], 10), farmSize || 16);
+	if(newFarmSize && !isNaN(newFarmSize)) {
+		chrome.storage.local.set({farmSize: newFarmSize});
+	}
 }
 
 const eggsRegex = /Currently, your chicken coop is producing ([0-9]+) egg[s]? and ([0-9]+) feather[s]? per day/;
-async function handleCoopPage(page: HTMLDivElement) {
+async function handleCoopPage(_: HTMLDivElement) {
 	let eggsFeathers = eggsRegex.exec(document.getElementById("animationArea")!!.textContent);
 	if(!eggsFeathers){
 		return;
@@ -119,7 +127,7 @@ async function handleCoopPage(page: HTMLDivElement) {
 }
 
 const milkRegex = /Currently, your cow pasture is producing ([0-9]+) milk per day/;
-async function handlePasturePage(page: HTMLDivElement) {
+async function handlePasturePage(_: HTMLDivElement) {
 	let milk = milkRegex.exec(document.getElementById("animationArea")!!.textContent);
 	if(!milk){
 		return;
@@ -129,9 +137,9 @@ async function handlePasturePage(page: HTMLDivElement) {
 	})
 }
 
-const boardRegex = /Your sawmill will generate boards every hour. Currently generating ([0-9]+) per hour/;
-const woodRegex = /Your sawmill will generate wood every hour. Currently generating ([0-9]+) per hour/;
-async function handleSawmillPage(page: HTMLDivElement) {
+const boardRegex = /Your sawmill will generate boards every hour.[ ]+Currently generating ([0-9]+) per hour/;
+const woodRegex = /Your sawmill will generate wood every hour.[ ]+Currently generating ([0-9]+) per hour/;
+async function handleSawmillPage(_: HTMLDivElement) {
 	let pageContent = document.body.textContent;
 	let board = boardRegex.exec(pageContent);
 	let wood = woodRegex.exec(pageContent);
@@ -141,8 +149,8 @@ async function handleSawmillPage(page: HTMLDivElement) {
 	})
 }
 
-const strawRegex = /Your hay field will generate straw every 10 minutes. Currently generating ([0-9]+) Straw every 10 minutes/;
-async function handleHayfieldPage(page: HTMLDivElement) {
+const strawRegex = /Your hay field will generate straw every 10 minutes.[ ]+Currently generating ([0-9]+) Straw every 10 minutes/;
+async function handleHayfieldPage(_: HTMLDivElement) {
 	let pageContent = document.body.textContent;
 	let straw = strawRegex.exec(pageContent);
 	chrome.storage.local.set({
@@ -150,9 +158,9 @@ async function handleHayfieldPage(page: HTMLDivElement) {
 	})
 }
 
-const stoneRegex = /Your quarry will generate regular stone and sandstone every 10 minutes. Currently generating ([0-9]+) every 10 minutes/;
-const coalRegex = /Your quarry will generate coal every hour. Currently generating ([0-9]+) per hour/;
-async function handleQuarryPage(page: HTMLDivElement) {
+const stoneRegex = /Your quarry will generate regular stone and sandstone every 10 minutes.[ ]+Currently generating ([0-9]+) every 10 minutes/;
+const coalRegex = /Your quarry will generate coal every hour.[ ]+Currently generating ([0-9]+) per hour/;
+async function handleQuarryPage(_: HTMLDivElement) {
 	let pageContent = document.body.textContent;
 	let stone = stoneRegex.exec(pageContent);
 	let coal = coalRegex.exec(pageContent);
@@ -172,6 +180,20 @@ async function handleOrchardPage(page: HTMLDivElement) {
 		orchardOrange: parseInt(orangeProduction, 10),
 		orchardLemon: parseInt(lemonProduction, 10),
 	});
+}
+
+async function handlePerksPage(page: HTMLDivElement) {
+  let buttons = page.querySelectorAll('.btnblue');
+  let perks = [];
+
+  for (const button of buttons) {
+    if (button.textContent.includes('Unlocked')) {
+      let perkName = button.closest('li')!!.querySelector('strong')!!.textContent;
+      perks.push(perkName);
+    }
+  }
+
+  chrome.storage.local.set({ perks });
 }
 
 let pageChangeMonitor = new MutationObserver((records) => {
@@ -202,6 +224,8 @@ let pageChangeMonitor = new MutationObserver((records) => {
 		handleQuestsPage(page);
 	} else if (page.dataset['page'] === 'index-1') {
 		handleIndexPage(page);
+	} else if (page.dataset['page'] === 'perks') {
+		handlePerksPage(page);
 	} else if (page.dataset['page'] === 'coop') {
 		handleCoopPage(page);
 	} else if (page.dataset['page'] === 'pasture') {

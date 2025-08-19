@@ -137,12 +137,47 @@ export class FarmPlant implements Provider {
 
 	getTimeRequired(): number {
 		const batchesNeeded = this.getBatchesNeeded();
-		return batchesNeeded * this.#output.baseYieldMinutes * 60 * 1000;
+		return batchesNeeded * (this.#output.baseYieldMinutes * (1-this.getFarmingTimeReduction())) * 60 * 1000;
+	}
+
+	private getFarmingTimeReduction(): number {
+		let perks = this.#lastState.playerInfo.perks;
+		let booster = 0;
+		if(perks.includes("Quicker Farming I")) {
+			booster += 0.05;
+		}
+		if(perks.includes("Quicker Farming II")) {
+			booster += 0.10;
+		}
+		if(perks.includes("Quicker Farming III")) {
+			booster += 0.15;
+		}
+		if(perks.includes("Quicker Farming IV")) {
+			booster += 0.20;
+		}
+		if(this.#output.name === "Corn"){
+			if(perks.includes("Quicker Corn I")) {
+				booster += 0.1;
+			}
+			if(perks.includes("Quicker Corn II")) {
+				booster += 0.1;
+			}
+		}
+		// TODO: Gold perks
+		return booster;
 	}
 
 	private getBatchesNeeded() {
-		const expectedProducePerBatch = this.#lastState.playerInfo.farmSize / this.#dropRate;
-		const batchesNeeded = Math.ceil(this.#desired / expectedProducePerBatch);
+		let doubleChance = 0;
+		if(this.#lastState.playerInfo.perks.includes("Double Prizes I")){
+			doubleChance += 0.15;
+		}
+		if(this.#lastState.playerInfo.perks.includes("Double Prizes II")){
+			doubleChance += 0.25;
+		}
+
+		let expectedProducePerBatch = (this.#lastState.playerInfo.farmSize / this.#dropRate) * (1 + doubleChance);
+		let batchesNeeded = Math.ceil(this.#desired / expectedProducePerBatch);
 		return batchesNeeded;
 	}
 
@@ -240,6 +275,7 @@ export class ExploreArea implements Provider {
 		let attemptsLeft = this.getAttemptsRequired();
 		let stamina = this.#lastState.playerInfo.maxStamina;
 		const STAMINA_PER_ATTEMPT = 1;
+		let staminaReduction = this.getPerksStaminaReduction();
 		
 		// Use Orange Juice first to boost stamina (100 stamina each)
 		const STAMINA_PER_ORANGE_JUICE = 100;
@@ -259,7 +295,7 @@ export class ExploreArea implements Provider {
 		if (appleCiderToUse > 0) {
 			this.#consumablesUsed.set(APPLE_CIDER_ID, appleCiderToUse);
 			attemptsLeft -= ATTEMPTS_PER_APPLE_CIDER * appleCiderToUse;
-			stamina -= ATTEMPTS_PER_APPLE_CIDER * appleCiderToUse;
+			stamina -= Math.ceil(ATTEMPTS_PER_APPLE_CIDER * appleCiderToUse * (1 - staminaReduction));
 			timeCost += appleCiderToUse * 500;
 		}
 		
@@ -297,7 +333,8 @@ export class ExploreArea implements Provider {
 		// Calculate regeneration time for remaining attempts
 		const STAMINA_PER_CYCLE = 20;
 		const CYCLE_TIME_MS = 10 * 60 * 1000; // 10 minutes
-		let cyclesNeeded = Math.ceil(attemptsLeft / STAMINA_PER_CYCLE);
+		let effectiveAttemptsPerCycle = STAMINA_PER_CYCLE / (1 - staminaReduction);
+		let cyclesNeeded = Math.ceil(attemptsLeft / effectiveAttemptsPerCycle);
 		timeCost += (cyclesNeeded * CYCLE_TIME_MS) + (attemptsLeft * 500)
 		
 		return timeCost;
@@ -305,6 +342,24 @@ export class ExploreArea implements Provider {
 
 	private getAttemptsRequired() {
 		return this.#dropRate * this.#amount;
+	}
+
+	private getPerksStaminaReduction(): number {
+		let perks = this.#lastState.playerInfo.perks;
+		let totalReduction = 0;
+		if(perks.includes("Wanderer I")) {
+			totalReduction += 0.04;
+		}
+		if(perks.includes("Wanderer II")) {
+			totalReduction += 0.07;
+		}
+		if(perks.includes("Wanderer III")) {
+			totalReduction += 0.09;
+		}
+		if(perks.includes("Wanderer IV")) {
+			totalReduction += 0.13;
+		}
+		return totalReduction;
 	}
 
 	async nextState(): Promise<SearchState> {
@@ -323,7 +378,6 @@ export class ExploreArea implements Provider {
 		}
 		
 		return produce(this.#lastState, (draft) => {
-
 			draft.inventory = draft.inventory.slice();
 			if(this.#consumablesUsed === null){
 				// The value is computed as side effect of this function
@@ -367,7 +421,7 @@ export class ExploreArea implements Provider {
 }
 
 export class BuyItemStore implements Provider {
-	#item: ItemInfo;
+	item: ItemInfo;
 	#amount: number;
 	#lastState: SearchState;
 
@@ -375,14 +429,14 @@ export class BuyItemStore implements Provider {
 		if(!item.canBuy){
 			throw new Error(`Cannot buy item ${item.name}`);
 		}
-		this.#item = item;
+		this.item = item;
 		this.#amount = Math.min(state.playerInfo.maxInventory, amount);
 		this.#lastState = state;
 	}
 
 	getTimeRequired(): number {
 		// TODO: Check perk
-		if([IRON_ID, NAILS_ID].includes(this.#item.id)){
+		if([IRON_ID, NAILS_ID].includes(this.item.id)){
 			return 0;
 		}
 		return 10000;
@@ -392,30 +446,30 @@ export class BuyItemStore implements Provider {
 		return produce(this.#lastState, (draft) => {
 			draft.inventory = draft.inventory.slice();
 
-			increaseSilver(draft, -(this.#item.buyPrice * this.#amount));
+			increaseSilver(draft, -(this.item.buyPrice * this.#amount));
 
-			increaseInventoryItem(draft.inventory, this.#item.id, this.#amount, draft.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, this.item.id, this.#amount, draft.playerInfo.maxInventory);
 		})
 	}
 
 	toString(): string {
-		return `Buy ${this.#item.name} ×${this.#amount} (Country Store)`;
+		return `Buy ${this.item.name} ×${this.#amount} (Country Store)`;
 	}
 }
 
 const fishingZoneLevel: Record<string, number> = {
-  "Small Pond": 1,
-  "Farm Pond": 5,
-  "Forest Pond": 5,
-  "Lake Tempest": 10,
-  "Small Island": 20,
-  "Crystal River": 30,
-  "Emerald Beach": 40,
-  "Vast Ocean": 50,
-  "Lake Minerva": 60,
-  "Large Island": 70,
-  "Pirate's Cove": 80,
-  "Glacier Lake": 90,
+	"Small Pond": 1,
+	"Farm Pond": 5,
+	"Forest Pond": 5,
+	"Lake Tempest": 10,
+	"Small Island": 20,
+	"Crystal River": 30,
+	"Emerald Beach": 40,
+	"Vast Ocean": 50,
+	"Lake Minerva": 60,
+	"Large Island": 70,
+	"Pirate's Cove": 80,
+	"Glacier Lake": 90,
 }
 
 function checkFishingZone(area: LocationInfo, state: SearchState) {
@@ -650,6 +704,7 @@ export class NetFishing implements Provider {
 export class CraftItem implements Provider {
 	#item: ItemInfo;
 	#amount: number;
+	#craftTimes: number;
 	#lastState: SearchState;
 
 	constructor(item: ItemInfo, desiredAmount: number, state: SearchState) {
@@ -660,6 +715,13 @@ export class CraftItem implements Provider {
 		this.#lastState = state;
 		const maxCraftable = this.getCraftableAmount(desiredAmount);
 		this.#amount = Math.min(state.playerInfo.maxInventory, maxCraftable);
+
+		let resourceSaverBonus = 0;
+		if(state.playerInfo.perks.includes("Resource Saver I")) {
+			resourceSaverBonus += 0.1;
+		}
+
+		this.#craftTimes = Math.ceil(this.#amount / (1 + resourceSaverBonus));
 	}
 
 	getCraftableAmount(desiredAmount: number): number {
@@ -675,7 +737,7 @@ export class CraftItem implements Provider {
 	}
 
 	toString(): string{
-		return `Craft ${this.#item.name} ×${this.#amount}`;
+		return `Craft ${this.#item.name} ×${this.#craftTimes}`;
 	}
 
 	getTimeRequired(): number {
@@ -691,7 +753,7 @@ export class CraftItem implements Provider {
 			draft.inventory = draft.inventory.slice();
 
 			for(let item of this.#item.recipeItems){
-				increaseInventoryItem(draft.inventory, item.item.id, -(this.#amount * item.quantity), this.#lastState.playerInfo.maxInventory);
+				increaseInventoryItem(draft.inventory, item.item.id, -(this.#craftTimes * item.quantity), this.#lastState.playerInfo.maxInventory);
 			}
 
 			increaseInventoryItem(draft.inventory, this.#item.id, this.#amount, this.#lastState.playerInfo.maxInventory);
@@ -707,10 +769,6 @@ export class CraftItem implements Provider {
 
 // }
 
-// export class FlourMill implements Provider {
-
-// }
-
 export class WaitForReset implements Provider {
 	#state: SearchState
 
@@ -719,7 +777,10 @@ export class WaitForReset implements Provider {
 	}
 
 	getTimeRequired(): number {
-		// TODO: This doesn't handle well when multiple copies of this get used
+		if(this.#state.waitedForReset) {
+			return 24 * 60 * 60000;
+		}
+
 		return getTimeUntilNextReset();
 	}
 	
@@ -732,6 +793,7 @@ export class WaitForReset implements Provider {
 			increaseInventoryItem(draft.inventory, EGGS_ID, this.#state.playerInfo.coopEggs, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, FEATHERS_ID, this.#state.playerInfo.coopFeathers, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, MILK_ID, this.#state.playerInfo.pastureMilk, this.#state.playerInfo.maxInventory);
+			draft.waitedForReset = true;
 		})
 	}
 	

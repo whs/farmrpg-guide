@@ -13,6 +13,7 @@ export interface SearchState {
 	readonly completedObjectives: readonly Objective[],
 
 	readonly playerInfo: PlayerInfo,
+	readonly waitedForReset?: true,
 }
 
 export interface PlayerInfo {
@@ -20,6 +21,8 @@ export interface PlayerInfo {
 	farmSize: number,
 	maxStamina: number,
 	skills: Skills,
+	perks: string[],
+	goldPerks: string[],
 
 	// Daily
 	coopEggs: number,

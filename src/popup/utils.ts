@@ -4,7 +4,7 @@ import { getQuestInfo } from "../data/buddyfarm";
 import { Quest, QuestType } from "../types";
 
 export async function getSearchState(): Promise<SearchState> {
-	let db = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills", "coopEggs", "coopFeathers", "pastureMilk", "sawmillBoard", "sawmillWood", "hayfieldStraw", "quarryStone", "quarryCoal", "orchardApple", "orchardOrange", "orchardLemon"]);
+	let db = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills", "coopEggs", "coopFeathers", "pastureMilk", "sawmillBoard", "sawmillWood", "hayfieldStraw", "quarryStone", "quarryCoal", "orchardApple", "orchardOrange", "orchardLemon", "farmSize", "perks", "goldPerks"]);
 
 	return {
 		inventory: arrayToUint16(db.inventory as number[]),
@@ -23,9 +23,11 @@ export async function getSearchState(): Promise<SearchState> {
 		playerInfo: {
 			maxInventory: db.maxInventorySize,
 			skills: db.skills,
+			farmSize: db.farmSize || 16,
 			// TODO
-			farmSize: 28,
 			maxStamina: 30,
+			perks: db.perks || [],
+			goldPerks: [],
 
 			coopEggs: db.coopEggs || 0,
 			coopFeathers: db.coopFeathers || 0,

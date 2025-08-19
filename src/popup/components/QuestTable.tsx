@@ -1,7 +1,9 @@
 import {Component} from "preact";
 import {NextState} from "../../algorithm/search.ts";
-import {Objective} from "../../algorithm/types.ts";
+import {Objective, Provider} from "../../algorithm/types.ts";
+import { BuyItemStore } from "../../algorithm/provider.ts";
 import { formatDuration } from "../utils.ts";
+import Loader from "./Loader.tsx";
 
 interface Props {
 	state: NextState[]|null,
@@ -12,9 +14,7 @@ export default class QuestTable extends Component<Props, any> {
 	render() {
 		if(!this.props.state){
 			return (
-				<div class="bg-white m-3 rounded-md border-1 border-slate-200 p-2">
-					Computing...
-				</div>
+				<div class="flex justify-center items-center" style={{height: "100px"}}><Loader /></div>
 			);
 		}
 
@@ -25,7 +25,7 @@ export default class QuestTable extends Component<Props, any> {
 		return (
 			<div>
 				{this.props.state.map((state, index) => {
-					let newActions=  state.actions.slice(lastActionLength);
+					let newActions = state.actions.slice(lastActionLength);
 					if(newActions.length === 0){
 						return null;
 					}
@@ -46,11 +46,12 @@ export default class QuestTable extends Component<Props, any> {
 								<div class="text-xs font-medium border-1 border-slate-200 p-1 rounded-md bg-slate-100">{formatDuration(timeTaken)}</div>
 							</div>
 							<ol class="list-decimal pl-6 leading-6">
-								{newActions.map((i) => (<li>{i.toString()}</li>))}
+								{this.formatActions(newActions)}
 							</ol>
 						</div>
 					);
 				})}
+				{this.props.finish ? null : <div class="flex justify-center items-center" style={{height: "100px"}}><Loader /></div>}
 				{lastState.state.objectives.length > 0 ? (
 					<div class="bg-red-200 m-2 rounded-md border-1 border-red-500 p-2">
 						<strong class="text-red-700 text-base mb-2">Quest remaining ({lastState.state.objectives.length})</strong>
@@ -61,5 +62,19 @@ export default class QuestTable extends Component<Props, any> {
 				) : null}
 			</div>
 		)
+	}
+
+	formatActions(actions: Provider[]) {
+		return actions.filter((action) => {
+			if(action instanceof BuyItemStore){
+				if(action.item.name === "Nails" || action.item.name === "Iron"){
+					return false;
+				}
+			}
+
+			return true;
+		}).map((action) => {
+			return <li>{action.toString()}</li>;
+		})
 	}
 }

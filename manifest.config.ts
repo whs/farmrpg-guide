@@ -14,13 +14,20 @@ export default defineManifest({
 		},
 		default_popup: 'src/popup/index.html',
 	},
+	sidebar_action: {
+		default_icon: {
+			48: 'public/logo.png',
+		},
+		default_title: "Farm RPG Guide",
+		default_panel: 'src/popup/index.html',
+	},
 	content_scripts: [{
 		js: ['src/content/main.ts'],
 		matches: ['https://farmrpg.com/', 'https://www.farmrpg.com/', 'https://farmrpg.com/index.php', 'https://www.farmrpg.com/index.php'],
 		run_at: "document_idle",
 	}],
 	permissions: [
-		"storage",
+		"storage"
 	],
 	host_permissions: [
 		"https://buddy.farm/*",

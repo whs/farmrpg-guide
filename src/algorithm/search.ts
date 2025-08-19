@@ -148,8 +148,6 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 		return out;
 	}
 
-	// TODO: Wait for passive regen
-
 	if(item.canCraft) {
 		out.push(new CraftItem(item, itemsNeeded, state.state));
 		out.push(...(await Promise.all(item.recipeItems.map(async (recipeItem) => {

@@ -2,6 +2,7 @@ import { Component } from "preact";
 import { getSearchState } from "../utils";
 import { greedySearchState, NextState } from "../../algorithm/search";
 import QuestTable from "./QuestTable";
+import { debounce } from "es-toolkit";
 
 interface State {
 	state: NextState[]|null,
@@ -24,6 +25,7 @@ export default class MainApp extends Component<{}, State> {
 	}
 
 	async search() {
+		this.setState({finish: false});
 		try {
 			var searchState = await getSearchState();
 		}catch(_) {
@@ -57,6 +59,21 @@ export default class MainApp extends Component<{}, State> {
 			finish: true,
 		});
 	}
+
+	componentDidMount(): void {
+		chrome.storage.local.onChanged.addListener(this.onStorageChanged)
+	}
+
+	componentWillUnmount(): void {
+		chrome.storage.local.onChanged.removeListener(this.onStorageChanged)
+	}
+
+	onStorageChanged = debounce((changes: { [key: string]: any }) => {
+		if(!("inventory" in changes) && !("quests" in changes)) {
+			return;
+		}
+		this.searchPromise = this.search();
+	}, 1000)
 
 	render() {
 		return (
