@@ -712,6 +712,7 @@ export type QueryUpdatesArgs = {
 export type Quest = {
   __typename?: 'Quest';
   name: string;
+  image: string;
   author?: Maybe<Scalars['String']['output']>;
   cleanDescription: Scalars['String']['output'];
   cleanTitle: Scalars['String']['output'];

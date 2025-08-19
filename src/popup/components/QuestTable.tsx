@@ -1,9 +1,9 @@
 import {Component} from "preact";
 import {NextState} from "../../algorithm/search.ts";
 import {Objective, Provider} from "../../algorithm/types.ts";
-import { BuyItemStore } from "../../algorithm/provider.ts";
 import { formatDuration } from "../utils.ts";
 import Loader from "./Loader.tsx";
+import { ActionRenderer } from "./provider.tsx";
 
 interface Props {
 	state: NextState[]|null,
@@ -34,14 +34,18 @@ export default class QuestTable extends Component<Props, any> {
 					lastTimeTaken = state.timeTaken;
 					let lastCompletedQuest: Objective|undefined = state.state.completedObjectives[state.state.completedObjectives.length - 1];
 					let questName = lastCompletedQuest?.quest?.name;
+					let questIcon: string|null = lastCompletedQuest?.quest?.image ? new URL(lastCompletedQuest?.quest?.image, "https://farmrpg.com").toString() : null;
 					if(questName === lastCompletedQuestName){
 						questName = undefined;
+						questIcon = null;
 					}
 					lastCompletedQuestName = questName;
+					
+
 					return (
 						<div class="bg-white m-3 rounded-md border-1 border-slate-200 p-2">
 							<div class="flex flex-row items-center font-bold mb-2">
-								<div class="bg-slate-300 p-1 rounded-md mr-2 px-2">{index + 1}</div>
+								<div class="bg-slate-300 flex items-center justify-center rounded-md mr-2 px-2 bg-cover bg-left ng-no-repeat text-white text-shadow-md/80 shadow-lg/30 w-8 h-8 text-lg font-black text-center" style={questIcon ? {backgroundImage: `url(${questIcon})`} : {}}>{index + 1}</div>
 								<div class="grow text-base">{questName}</div>
 								<div class="text-xs font-medium border-1 border-slate-200 p-1 rounded-md bg-slate-100">{formatDuration(timeTaken)}</div>
 							</div>
@@ -65,16 +69,8 @@ export default class QuestTable extends Component<Props, any> {
 	}
 
 	formatActions(actions: Provider[]) {
-		return actions.filter((action) => {
-			if(action instanceof BuyItemStore){
-				if(action.item.name === "Nails" || action.item.name === "Iron"){
-					return false;
-				}
-			}
-
-			return true;
-		}).map((action) => {
-			return <li>{action.toString()}</li>;
+		return actions.map((action) => {
+			return <ActionRenderer action={action} />;
 		})
 	}
 }

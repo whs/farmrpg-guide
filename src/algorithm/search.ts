@@ -173,7 +173,7 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 
 	for (let method of item.dropRatesItems) {
 		if (method.dropRates.seed) {
-			// TODO: Check requirements
+			// FIXME: Check requirements - Buddyfarm doesn't record these
 			let seedInfo = await getItemInfo(method.dropRates.seed.name);
 			let farmPlant = new FarmPlant(seedInfo, item, itemsNeeded, state.state);
 			out.push(...await tryToGetItem(state, seedInfo, farmPlant.getSeedNeeded()));

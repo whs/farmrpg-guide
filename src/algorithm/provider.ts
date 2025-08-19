@@ -26,6 +26,8 @@ import { getTimeUntilNextReset } from "./utils.ts";
 
 enableMapSet()
 
+const MENUING_TIME = 30000;
+
 function increaseInventoryItem(inventory: WritableDraft<Uint16Array>, itemId: number, amount: number, maxInventory: number){
 	if(!itemId){
 		throw new Error("Missing itemId");
@@ -47,26 +49,26 @@ function increaseSilver(state: WritableDraft<SearchState>, amount: number){
 
 export class SubmitQuest implements Provider {
 	#lastState: SearchState;
-	#quest: QuestInfo;
+	quest: QuestInfo;
 
 	constructor(quest: QuestInfo, state: SearchState) {
 		this.#lastState = state;
-		this.#quest = quest;
+		this.quest = quest;
 	}
 
 	getTimeRequired(): number {
-		return 10000;
+		return MENUING_TIME;
 	}
 
 	async nextState(): Promise<SearchState> {
-		let requiredItems = await Promise.all(this.#quest.requiredItems.map(async (item) => ({info: await getItemInfo(item.item.name), item})));
-		let rewardItems = await Promise.all(this.#quest.rewardItems.map(async (item) => ({info: await getItemInfo(item.item.name), item})));
+		let requiredItems = await Promise.all(this.quest.requiredItems.map(async (item) => ({info: await getItemInfo(item.item.name), item})));
+		let rewardItems = await Promise.all(this.quest.rewardItems.map(async (item) => ({info: await getItemInfo(item.item.name), item})));
 
 		return produce(this.#lastState, (draft) => {
 			draft.inventory = draft.inventory.slice();
 
-			increaseSilver(draft, -(this.#quest.requiredSilver || 0));
-			increaseSilver(draft, this.#quest.rewardSilver);
+			increaseSilver(draft, -(this.quest.requiredSilver || 0));
+			increaseSilver(draft, this.quest.rewardSilver);
 
 			for (let item of requiredItems) {
 				increaseInventoryItem(
@@ -86,7 +88,7 @@ export class SubmitQuest implements Provider {
 				);
 			}
 
-			let index = draft.objectives.findIndex((q) => q.quest?.name === this.#quest.name);
+			let index = draft.objectives.findIndex((q) => q.quest?.name === this.quest.name);
 			if (index === -1){
 				throw new Error("quest not found");
 			}
@@ -97,23 +99,23 @@ export class SubmitQuest implements Provider {
 	}
 
 	toString(): string{
-		return `Submit Quest ${this.#quest.name}`;
+		return `Submit Quest ${this.quest.name}`;
 	}
 }
 
 export class FarmPlant implements Provider {
 	#lastState: SearchState;
-	#seed: ItemInfo;
-	#output: ItemInfo;
-	#desired: number;
+	seed: ItemInfo;
+	output: ItemInfo;
+	desired: number;
 	// @ts-ignore
 	#dropRate: number;
 
 	constructor(seedItem: ItemInfo, outputItem: ItemInfo, desired: number, state: SearchState) {
 		this.#lastState = state;
-		this.#desired = Math.min(this.#lastState.playerInfo.maxInventory, desired);
-		this.#seed = seedItem;
-		this.#output = outputItem;
+		this.desired = Math.min(this.#lastState.playerInfo.maxInventory, desired);
+		this.seed = seedItem;
+		this.output = outputItem;
 
 		let foundSeed = false;
 		for(let method of outputItem.dropRatesItems) {
@@ -133,12 +135,12 @@ export class FarmPlant implements Provider {
 	}
 
 	toString(): string{
-		return `Farm ${this.#output.name} ×${this.#desired}`;
+		return `Farm ${this.output.name} ×${this.desired}`;
 	}
 
 	getTimeRequired(): number {
 		const batchesNeeded = this.getBatchesNeeded();
-		return batchesNeeded * (this.#output.baseYieldMinutes * (1-this.getFarmingTimeReduction())) * 60 * 1000;
+		return batchesNeeded * (this.output.baseYieldMinutes * (1-this.getFarmingTimeReduction())) * 60 * 1000;
 	}
 
 	private getFarmingTimeReduction(): number {
@@ -163,7 +165,7 @@ export class FarmPlant implements Provider {
 		if(goldPerks.includes("Irrigation System II")) {
 			booster += 0.2;
 		}
-		if(this.#output.name === "Corn"){
+		if(this.output.name === "Corn"){
 			if(perks.includes("Quicker Corn I")) {
 				booster += 0.1;
 			}
@@ -171,7 +173,6 @@ export class FarmPlant implements Provider {
 				booster += 0.1;
 			}
 		}
-		// TODO: Gold perks
 		return booster;
 	}
 
@@ -185,7 +186,7 @@ export class FarmPlant implements Provider {
 		}
 
 		let expectedProducePerBatch = (this.#lastState.playerInfo.farmSize / this.#dropRate) * (1 + doubleChance);
-		let batchesNeeded = Math.ceil(this.#desired / expectedProducePerBatch);
+		let batchesNeeded = Math.ceil(this.desired / expectedProducePerBatch);
 		return batchesNeeded;
 	}
 
@@ -200,7 +201,7 @@ export class FarmPlant implements Provider {
 			let rolls = this.#lastState.playerInfo.farmSize * batches;
 			increaseInventoryItem(
 				draft.inventory,
-				this.#seed.id,
+				this.seed.id,
 				-this.getSeedNeeded(),
 				this.#lastState.playerInfo.maxInventory
 			);
@@ -208,14 +209,14 @@ export class FarmPlant implements Provider {
 			// Add produce
 			increaseInventoryItem(
 				draft.inventory,
-				this.#output.id,
-				this.#desired,
+				this.output.id,
+				this.desired,
 				this.#lastState.playerInfo.maxInventory
 			);
 
 			// Add by products
-			for(let drop of this.#seed.dropRates[0].items){
-				if(drop.item.id === this.#output.id) {
+			for(let drop of this.seed.dropRates[0].items){
+				if(drop.item.id === this.output.id) {
 					// Ignore produce drop as we have hard coded rule
 					continue;
 				}
@@ -245,18 +246,18 @@ const exploreZoneLevel: Record<string, number> = {
 }
 
 export class ExploreArea implements Provider {
-	#area: LocationInfo;
-	#item: ItemInfo;
-	#amount: number;
+	area: LocationInfo;
+	item: ItemInfo;
+	amount: number;
 	#lastState: SearchState;
 	#dropRate: number = 0;
 
 	#consumablesUsed: Map<number, number>|null = null;
 
 	constructor(areaInfo: LocationInfo, desiredItem: ItemInfo, desiredAmount: number, state: SearchState) {
-		this.#area = areaInfo;
-		this.#item = desiredItem;
-		this.#amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
+		this.area = areaInfo;
+		this.item = desiredItem;
+		this.amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
 		this.#lastState = state;
 
 		let foundDropRate = false;
@@ -273,7 +274,7 @@ export class ExploreArea implements Provider {
 	}
 
 	toString(): string{
-		return `Explore ${this.#area.name} ×${Math.ceil(this.getAttemptsRequired())} — find ${this.#item.name} ×${this.#amount}`;
+		return `Explore ${this.area.name} ×${Math.ceil(this.getAttemptsRequired())} — find ${this.item.name} ×${this.amount}`;
 	}
 
 	getTimeRequired(): number {
@@ -356,8 +357,8 @@ export class ExploreArea implements Provider {
 		return timeCost;
 	}
 
-	private getAttemptsRequired() {
-		return this.#dropRate * this.#amount;
+	getAttemptsRequired() {
+		return this.#dropRate * this.amount;
 	}
 
 	private getPerksStaminaReduction(): number {
@@ -380,16 +381,16 @@ export class ExploreArea implements Provider {
 
 	async nextState(): Promise<SearchState> {
 		// Check prerequisites
-		if(exploreZoneLevel[this.#area.name] > this.#lastState.playerInfo.skills.exploring){
-			throw new GameplayError(`Area ${this.#area.name} require Explore level ${exploreZoneLevel[this.#area.name]}`);
+		if(exploreZoneLevel[this.area.name] > this.#lastState.playerInfo.skills.exploring){
+			throw new GameplayError(`Area ${this.area.name} require Explore level ${exploreZoneLevel[this.area.name]}`);
 		}
-		if(this.#area.name === "Ember Lagoon" && this.#lastState.inventory[INFERNO_SPHERE_ID] === 0) {
+		if(this.area.name === "Ember Lagoon" && this.#lastState.inventory[INFERNO_SPHERE_ID] === 0) {
 			throw new GameplayError("No Inferno Sphere");
-		}else if(this.#area.name === "Whispering Creek" && this.#lastState.inventory[COMPASS_ID] === 0) {
+		}else if(this.area.name === "Whispering Creek" && this.#lastState.inventory[COMPASS_ID] === 0) {
 			throw new GameplayError("No Compass");
-		}else if(this.#area.name === "Jundland Desert" && this.#lastState.inventory[DETECTOR_ID] === 0) {
+		}else if(this.area.name === "Jundland Desert" && this.#lastState.inventory[DETECTOR_ID] === 0) {
 			throw new GameplayError("No Y73841 Detector");
-		}else if(this.#area.name === "Gary's Crushroom" && this.#lastState.inventory[GARY_CRUSHROOM_KEY_ID] === 0) {
+		}else if(this.area.name === "Gary's Crushroom" && this.#lastState.inventory[GARY_CRUSHROOM_KEY_ID] === 0) {
 			throw new GameplayError("No Gary's Crushroom Key");
 		}
 		
@@ -414,14 +415,14 @@ export class ExploreArea implements Provider {
 			// Add target item
 			increaseInventoryItem(
 				draft.inventory,
-				this.#item.id,
-				this.#amount,
+				this.item.id,
+				this.amount,
 				this.#lastState.playerInfo.maxInventory,
 			);
 
 			// Add by products
-			for(let drop of this.#area.dropRates[0].items){
-				if(drop.item.id === this.#item.id){
+			for(let drop of this.area.dropRates[0].items){
+				if(drop.item.id === this.item.id){
 					// Ignore resulting item drop
 					continue;
 				}
@@ -438,7 +439,7 @@ export class ExploreArea implements Provider {
 
 export class BuyItemStore implements Provider {
 	item: ItemInfo;
-	#amount: number;
+	amount: number;
 	#lastState: SearchState;
 
 	constructor(item: ItemInfo, amount: number, state: SearchState) {
@@ -446,30 +447,29 @@ export class BuyItemStore implements Provider {
 			throw new Error(`Cannot buy item ${item.name}`);
 		}
 		this.item = item;
-		this.#amount = Math.min(state.playerInfo.maxInventory, amount);
+		this.amount = Math.min(state.playerInfo.maxInventory, amount);
 		this.#lastState = state;
 	}
 
 	getTimeRequired(): number {
-		// TODO: Check perk
-		if([IRON_ID, NAILS_ID].includes(this.item.id)){
+		if(this.#lastState.playerInfo.goldPerks.includes("Iron Depot") && [IRON_ID, NAILS_ID].includes(this.item.id)){
 			return 0;
 		}
-		return 10000;
+		return MENUING_TIME;
 	}
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#lastState, (draft) => {
 			draft.inventory = draft.inventory.slice();
 
-			increaseSilver(draft, -(this.item.buyPrice * this.#amount));
+			increaseSilver(draft, -(this.item.buyPrice * this.amount));
 
-			increaseInventoryItem(draft.inventory, this.item.id, this.#amount, draft.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, this.item.id, this.amount, draft.playerInfo.maxInventory);
 		})
 	}
 
 	toString(): string {
-		return `Buy ${this.item.name} ×${this.#amount}`;
+		return `Buy ${this.item.name} ×${this.amount}`;
 	}
 }
 
@@ -504,17 +504,17 @@ function checkFishingZone(area: LocationInfo, state: SearchState) {
 }
 
 export class ManualFishing implements Provider {
-	#area: LocationInfo;
-	#item: ItemInfo;
-	#amount: number;
+	area: LocationInfo;
+	item: ItemInfo;
+	amount: number;
 	#lastState: SearchState;
 	#dropTable: DropRatesItem[] = [];
 	#dropRate: number = 0;
 
 	constructor(areaInfo: LocationInfo, desiredItem: ItemInfo, desiredAmount: number, state: SearchState) {
-		this.#area = areaInfo;
-		this.#item = desiredItem;
-		this.#amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
+		this.area = areaInfo;
+		this.item = desiredItem;
+		this.amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
 		this.#lastState = state;
 
 		let foundDropRate = false;
@@ -537,7 +537,7 @@ export class ManualFishing implements Provider {
 	}
 
 	toString(): string{
-		return `Manual Fishing ${this.#area.name} ×${Math.ceil(this.getAttemptsRequired()/10)} for ${this.#item.name} ×${this.#amount}`;
+		return `Manual Fishing ${this.area.name} ×${Math.ceil(this.getAttemptsRequired())} for ${this.item.name} ×${this.amount}`;
 	}
 
 	getTimeRequired(): number {
@@ -548,12 +548,12 @@ export class ManualFishing implements Provider {
 		return Math.ceil((mealwormRolls * 500) + (rollsLeft * 5000));
 	}
 
-	private getAttemptsRequired() {
-		return this.#dropRate * this.#amount;
+	getAttemptsRequired() {
+		return this.#dropRate * this.amount;
 	}
 
 	async nextState(): Promise<SearchState> {
-		checkFishingZone(this.#area, this.#lastState);
+		checkFishingZone(this.area, this.#lastState);
 		
 		return produce(this.#lastState, (draft) => {
 			draft.inventory = draft.inventory.slice();
@@ -576,15 +576,15 @@ export class ManualFishing implements Provider {
 				// Guaranteed drop
 				increaseInventoryItem(
 					draft.inventory,
-					this.#item.id,
-					this.#amount,
+					this.item.id,
+					this.amount,
 					this.#lastState.playerInfo.maxInventory,
 				);
 			}else{
 				// Partial drop
 				increaseInventoryItem(
 					draft.inventory,
-					this.#item.id,
+					this.item.id,
 					Math.floor(rollCount / this.#dropRate),
 					this.#lastState.playerInfo.maxInventory,
 				);
@@ -592,7 +592,7 @@ export class ManualFishing implements Provider {
 
 			// Add by products
 			for(let drop of this.#dropTable){
-				if(drop.item.id === this.#item.id){
+				if(drop.item.id === this.item.id){
 					// Ignore resulting item drop
 					continue;
 				}
@@ -608,17 +608,17 @@ export class ManualFishing implements Provider {
 }
 
 export class NetFishing implements Provider {
-	#area: LocationInfo;
-	#item: ItemInfo;
-	#amount: number;
+	area: LocationInfo;
+	item: ItemInfo;
+	amount: number;
 	#lastState: SearchState;
 	#dropTable: DropRatesItem[] = [];
 	#dropRate: number = 0;
 
 	constructor(areaInfo: LocationInfo, desiredItem: ItemInfo, desiredAmount: number, state: SearchState) {
-		this.#area = areaInfo;
-		this.#item = desiredItem;
-		this.#amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
+		this.area = areaInfo;
+		this.item = desiredItem;
+		this.amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
 		this.#lastState = state;
 
 		let foundDropRate = false;
@@ -641,7 +641,7 @@ export class NetFishing implements Provider {
 	}
 
 	toString(): string{
-		return `Net Fishing ${this.#area.name} ×${Math.ceil(this.getAttemptsRequired()/10)} for ${this.#item.name} ×${this.#amount}`;
+		return `Net Fishing ${this.area.name} ×${Math.ceil(this.getAttemptsRequired()/this.getRollPerNet())} for ${this.item.name} ×${this.amount}`;
 	}
 
 	getRollPerNet(): number {
@@ -658,12 +658,12 @@ export class NetFishing implements Provider {
 		return Math.ceil(rollsNeeded * 300);
 	}
 
-	private getAttemptsRequired() {
-		return this.#dropRate * this.#amount;
+	getAttemptsRequired() {
+		return this.#dropRate * this.amount;
 	}
 	
 	async nextState(): Promise<SearchState> {
-		checkFishingZone(this.#area, this.#lastState);
+		checkFishingZone(this.area, this.#lastState);
 
 		return produce(this.#lastState, (draft) => {
 			draft.inventory = draft.inventory.slice();
@@ -694,15 +694,15 @@ export class NetFishing implements Provider {
 				// Guaranteed drop
 				increaseInventoryItem(
 					draft.inventory,
-					this.#item.id,
-					this.#amount,
+					this.item.id,
+					this.amount,
 					this.#lastState.playerInfo.maxInventory,
 				);
 			}else{
 				// Partial drop
 				increaseInventoryItem(
 					draft.inventory,
-					this.#item.id,
+					this.item.id,
 					Math.floor(actualRolls / this.#dropRate),
 					this.#lastState.playerInfo.maxInventory,
 				);
@@ -710,7 +710,7 @@ export class NetFishing implements Provider {
 
 			// Add by products
 			for(let drop of this.#dropTable){
-				if(drop.item.id === this.#item.id){
+				if(drop.item.id === this.item.id){
 					// Ignore resulting item drop
 					continue;
 				}
@@ -726,19 +726,19 @@ export class NetFishing implements Provider {
 }
 
 export class CraftItem implements Provider {
-	#item: ItemInfo;
-	#amount: number;
-	#craftTimes: number;
+	item: ItemInfo;
+	amount: number;
+	craftTimes: number;
 	#lastState: SearchState;
 
 	constructor(item: ItemInfo, desiredAmount: number, state: SearchState) {
-		this.#item = item;
-		if(!this.#item.canCraft) {
+		this.item = item;
+		if(!this.item.canCraft) {
 			throw new Error(`Item ${item.name} is not craftable`);
 		}
 		this.#lastState = state;
 		const maxCraftable = this.getCraftableAmount(desiredAmount);
-		this.#amount = Math.min(state.playerInfo.maxInventory, maxCraftable);
+		this.amount = Math.min(state.playerInfo.maxInventory, maxCraftable);
 
 		let resourceSaverBonus = 0;
 		if(state.playerInfo.perks.includes("Resource Saver I")) {
@@ -748,15 +748,15 @@ export class CraftItem implements Provider {
 			resourceSaverBonus += 0.15;
 		}
 
-		this.#craftTimes = Math.ceil(this.#amount / (1 + resourceSaverBonus));
+		this.craftTimes = Math.ceil(this.amount / (1 + resourceSaverBonus));
 	}
 
 	getCraftableAmount(desiredAmount: number): number {
-		if (this.#item.recipeItems.length === 0) {
+		if (this.item.recipeItems.length === 0) {
 			return 0;
 		}
 
-		const craftableAmounts = this.#item.recipeItems.map((recipeItem) => {
+		const craftableAmounts = this.item.recipeItems.map((recipeItem) => {
 			return Math.floor(this.#lastState.inventory[recipeItem.item.id] / recipeItem.quantity);
 		});
 
@@ -764,26 +764,26 @@ export class CraftItem implements Provider {
 	}
 
 	toString(): string{
-		return `Craft ${this.#item.name} ×${this.#craftTimes}`;
+		return `Craft ${this.item.name} ×${this.craftTimes}`;
 	}
 
 	getTimeRequired(): number {
-		return 10000;
+		return MENUING_TIME;
 	}
 
 	async nextState(): Promise<SearchState> {
-		if (this.#item.craftingLevel > this.#lastState.playerInfo.skills.crafting) {
-			throw new GameplayError(`Item needs ${this.#item.craftingLevel} crafting`);
+		if (this.item.craftingLevel > this.#lastState.playerInfo.skills.crafting) {
+			throw new GameplayError(`Item needs ${this.item.craftingLevel} crafting`);
 		}
 
 		return produce(this.#lastState, (draft) => {
 			draft.inventory = draft.inventory.slice();
 
-			for(let item of this.#item.recipeItems){
-				increaseInventoryItem(draft.inventory, item.item.id, -(this.#craftTimes * item.quantity), this.#lastState.playerInfo.maxInventory);
+			for(let item of this.item.recipeItems){
+				increaseInventoryItem(draft.inventory, item.item.id, -(this.craftTimes * item.quantity), this.#lastState.playerInfo.maxInventory);
 			}
 
-			increaseInventoryItem(draft.inventory, this.#item.id, this.#amount, this.#lastState.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, this.item.id, this.amount, this.#lastState.playerInfo.maxInventory);
 		});
 	}
 }
@@ -957,23 +957,23 @@ export class WaitFor10Min implements Provider {
 
 export class BuySteak implements Provider {
 	#state: SearchState
-	#amount: number;
+	amount: number;
 
 	constructor(amount: number, state: SearchState){
-		this.#amount = amount;
+		this.amount = amount;
 		this.#state = state;
 	}
 
 	getTimeRequired(): number {
-		return 30000;
+		return MENUING_TIME;
 	}
 	
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
 			// Bill for max price
-			increaseSilver(draft, 75000 * this.#amount)
+			increaseSilver(draft, 75000 * this.amount)
 			draft.inventory = draft.inventory.slice();
-			increaseInventoryItem(draft.inventory, STEAK_ID, this.#amount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, STEAK_ID, this.amount, this.#state.playerInfo.maxInventory);
 		})
 	}
 	
@@ -984,23 +984,23 @@ export class BuySteak implements Provider {
 
 export class BuySteakKabob implements Provider {
 	#state: SearchState
-	#amount: number;
+	amount: number;
 
 	constructor(amount: number, state: SearchState){
-		this.#amount = amount;
+		this.amount = amount;
 		this.#state = state;
 	}
 
 	getTimeRequired(): number {
-		return 30000;
+		return MENUING_TIME;
 	}
 	
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
 			// Bill for max price
-			increaseSilver(draft, 12000 * this.#amount)
+			increaseSilver(draft, 12000 * this.amount)
 			draft.inventory = draft.inventory.slice();
-			increaseInventoryItem(draft.inventory, STEAK_KABOB_ID, this.#amount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, STEAK_KABOB_ID, this.amount, this.#state.playerInfo.maxInventory);
 		})
 	}
 	
