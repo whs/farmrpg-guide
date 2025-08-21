@@ -65,7 +65,7 @@ export class SubmitQuest implements Provider {
 		let rewardItems = await Promise.all(this.quest.rewardItems.map(async (item) => ({info: await getItemInfo(item.item.name), item})));
 
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#lastState.inventory.slice();
 
 			increaseSilver(draft, -(this.quest.requiredSilver || 0));
 			increaseSilver(draft, this.quest.rewardSilver);
@@ -88,11 +88,11 @@ export class SubmitQuest implements Provider {
 				);
 			}
 
-			let index = draft.objectives.findIndex((q) => q.quest?.name === this.quest.name);
+			let index = this.#lastState.objectives.findIndex((q) => q.quest?.name === this.quest.name);
 			if (index === -1){
 				throw new Error("quest not found");
 			}
-			let quest = draft.objectives[index];
+			let quest = this.#lastState.objectives[index];
 			draft.objectives.splice(index, 1);
 			draft.completedObjectives.push(quest);
 		});
@@ -196,7 +196,7 @@ export class FarmPlant implements Provider {
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#lastState.inventory.slice();
 			let batches = this.getBatchesNeeded();
 			let rolls = this.#lastState.playerInfo.farmSize * batches;
 			increaseInventoryItem(
@@ -395,7 +395,7 @@ export class ExploreArea implements Provider {
 		}
 		
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#lastState.inventory.slice();
 			if(this.#consumablesUsed === null){
 				// The value is computed as side effect of this function
 				this.getTimeRequired();
@@ -460,11 +460,11 @@ export class BuyItemStore implements Provider {
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#lastState.inventory.slice();
 
 			increaseSilver(draft, -(this.item.buyPrice * this.amount));
 
-			increaseInventoryItem(draft.inventory, this.item.id, this.amount, draft.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, this.item.id, this.amount, this.#lastState.playerInfo.maxInventory);
 		})
 	}
 
@@ -556,7 +556,7 @@ export class ManualFishing implements Provider {
 		checkFishingZone(this.area, this.#lastState);
 		
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#lastState.inventory.slice();
 
 			let rollsNeeded = this.getAttemptsRequired();
 			let rollCount = 0;
@@ -666,7 +666,7 @@ export class NetFishing implements Provider {
 		checkFishingZone(this.area, this.#lastState);
 
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#lastState.inventory.slice();
 			
 			let rollsNeeded = this.getAttemptsRequired();
 			let actualRolls = 0;
@@ -675,17 +675,17 @@ export class NetFishing implements Provider {
 			
 			// Try large net
 			// We have to use all large nets first as we can't use small nets when we have large nets
-			if(draft.inventory[LARGE_FISHING_NET_ID] > 0){
+			if(this.#lastState.inventory[LARGE_FISHING_NET_ID] > 0){
 				let largeNetUsed = Math.ceil(rollsNeeded/rollsPerLargeNet);
-				largeNetUsed = Math.min(largeNetUsed, draft.inventory[LARGE_FISHING_NET_ID]);
+				largeNetUsed = Math.min(largeNetUsed, this.#lastState.inventory[LARGE_FISHING_NET_ID]);
 				actualRolls += largeNetUsed * rollsPerLargeNet;
 				draft.inventory[LARGE_FISHING_NET_ID] -= largeNetUsed;
 			}
 
 			// Try small net
-			if(draft.inventory[FISHING_NET_ID] > 0){
+			if(this.#lastState.inventory[FISHING_NET_ID] > 0){
 				let netUsed = Math.ceil(rollsNeeded/rollsPerNet);
-				netUsed = Math.min(netUsed, draft.inventory[FISHING_NET_ID]);
+				netUsed = Math.min(netUsed, this.#lastState.inventory[FISHING_NET_ID]);
 				actualRolls += netUsed * rollsPerNet;
 				draft.inventory[FISHING_NET_ID] -= netUsed;
 			}
@@ -777,7 +777,7 @@ export class CraftItem implements Provider {
 		}
 
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#lastState.inventory.slice();
 
 			for(let item of this.item.recipeItems){
 				increaseInventoryItem(draft.inventory, item.item.id, -(this.craftTimes * item.quantity), this.#lastState.playerInfo.maxInventory);
@@ -815,7 +815,7 @@ export class FlourMill implements Provider {
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#state.inventory.slice();
 			increaseInventoryItem(draft.inventory, WHEAT_ID, -Math.ceil(this.#amount/14.4), this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, FLOUR_ID, this.#amount, this.#state.playerInfo.maxInventory);
 		});
@@ -861,7 +861,7 @@ export class FeedMill implements Provider {
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#state.inventory.slice();
 			let producePerInput = FeedMill.feedTable[this.#input.name];
 			let inputRequired = Math.ceil(this.#amount / producePerInput);
 			increaseInventoryItem(draft.inventory, this.#input.id, -inputRequired, this.#state.playerInfo.maxInventory);
@@ -887,7 +887,7 @@ export class WaitForReset implements Provider {
 	
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#state.inventory.slice();
 			// Trees already include the perk bonuses
 			increaseInventoryItem(draft.inventory, APPLE_ID, this.#state.playerInfo.orchardApple, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, ORANGE_ID, this.#state.playerInfo.orchardOrange, this.#state.playerInfo.maxInventory);
@@ -919,7 +919,7 @@ export class WaitForHourly implements Provider {
 	
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#state.inventory.slice();
 			increaseInventoryItem(draft.inventory, BOARD_ID, this.#state.playerInfo.sawmillBoard, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, WOOD_ID, this.#state.playerInfo.sawmillWood, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, STEEL_ID, this.#state.playerInfo.steelworksSteel, this.#state.playerInfo.maxInventory);
@@ -945,7 +945,7 @@ export class WaitFor10Min implements Provider {
 	
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#state.inventory.slice();
 			increaseInventoryItem(draft.inventory, STRAW_ID, this.#state.playerInfo.hayfieldStraw, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, STONE_ID, this.#state.playerInfo.quarryStone, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, COAL_ID, this.#state.playerInfo.quarryCoal, this.#state.playerInfo.maxInventory);
@@ -974,7 +974,7 @@ export class BuySteak implements Provider {
 		return produce(this.#state, (draft) => {
 			// Bill for max price
 			increaseSilver(draft, 75000 * this.amount)
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#state.inventory.slice();
 			increaseInventoryItem(draft.inventory, STEAK_ID, this.amount, this.#state.playerInfo.maxInventory);
 		})
 	}
@@ -1001,7 +1001,7 @@ export class BuySteakKabob implements Provider {
 		return produce(this.#state, (draft) => {
 			// Bill for max price
 			increaseSilver(draft, 12000 * this.amount)
-			draft.inventory = draft.inventory.slice();
+			draft.inventory = this.#state.inventory.slice();
 			increaseInventoryItem(draft.inventory, STEAK_KABOB_ID, this.amount, this.#state.playerInfo.maxInventory);
 		})
 	}

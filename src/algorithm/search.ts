@@ -1,5 +1,5 @@
 import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Provider, SearchState, STEAK_ID, STEAK_KABOB_ID} from "./types.ts";
-import {getItemInfo, getLocationInfo, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
+import {getItemInfo, getLocationInfo, isExplorable, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {BuyItemStore, BuySteak, BuySteakKabob, CraftItem, ExploreArea, FarmPlant, FeedMill, FlourMill, ManualFishing, NetFishing, SubmitQuest, WaitFor10Min, WaitForHourly, WaitForReset} from "./provider.ts";
 import {castDraft, produce} from "immer";
 
@@ -150,6 +150,11 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 		return out;
 	}
 
+	if (item.id === STEAK_ID) {
+		out.push(new BuySteak(itemsNeeded, state.state));
+	} else if (item.id === STEAK_KABOB_ID) {
+		out.push(new BuySteakKabob(itemsNeeded, state.state));
+	}
 	if(item.canBuy) {
 		out.push(new BuyItemStore(item, itemsNeeded, state.state));
 	}
@@ -168,10 +173,6 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 			out.push(new FeedMill(feed, itemsNeeded, state.state));
 			out.push(...await tryToGetItem(state, feed, Math.ceil(itemsNeeded/FeedMill.feedTable[feed.name])));
 		}
-	} else if (item.id === STEAK_ID) {
-		out.push(new BuySteak(itemsNeeded, state.state));
-	} else if (item.id === STEAK_KABOB_ID) {
-		out.push(new BuySteakKabob(itemsNeeded, state.state));
 	}
 
 	if(item.canCraft) {
@@ -276,11 +277,7 @@ async function _getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo,
 		"Iced Tea", "Glass Bottle", "Tea Leaves", "Lemon", "Orange", "Glass Orb", "Stone",
 		"Shimmer Stone", "Unpolished Shimmer Stone", "Emberstone", "Sandstone", "Sand", "Leather", "Hide",
 	];
-	let isFoundFromExploration = item.dropRatesItems.some((dropRate) => {
-		// TODO: Handle locked locations
-		return dropRate.dropRates.location?.type === "explore";
-	});
-	if (isFoundFromExploration) {
+	if (isExplorable(item)) {
 		let expectedExploreCount = item.dropRatesItems.filter((dropRate) => {
 			// TODO: Handle locked locations
 			return dropRate.dropRates.location?.type === "explore";
@@ -322,15 +319,13 @@ async function _getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo,
 	// Check recipe completion
 	let recipeCompletion = 0;
 	if(item.recipeItems.length > 0) {
-		let allComponentsCompletion = 1.0;
-		for(let recipe of item.recipeItems){
+		let recipeCompletions = item.recipeItems.map(async (recipe) => {
 			let expectedQuantity = recipe.quantity * itemsLeft;
 			let componentInfo = await getItemInfo(recipe.item.name);
-			let componentCompletion = await getItemCompletionPercent(inventory, componentInfo, expectedQuantity);
-			allComponentsCompletion *= componentCompletion;
-		}
+			return getItemCompletionPercent(inventory, componentInfo, expectedQuantity);
+		});
 		// Count uncrafted items as 50% of real item
-		recipeCompletion = allComponentsCompletion * 0.50;
+		recipeCompletion = (await Promise.all(recipeCompletions)).reduce((a, b) => a * b, 1.0) * 0.5;
 	}
 
 	// Use the best completion method for remaining items
