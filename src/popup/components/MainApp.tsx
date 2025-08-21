@@ -1,8 +1,11 @@
 import { Component } from "preact";
 import { getSearchState } from "../utils";
 import { greedySearchState, NextState } from "../../algorithm/search";
-import QuestTable from "./QuestTable";
+import Result from "./Result.tsx";
 import { debounce } from "es-toolkit";
+import PlayerInfo from "./PlayerInfo";
+import { actionsSearched } from "../../algorithm/search";
+import ActionDisplay from "./ActionDisplay.tsx";
 
 interface State {
 	state: NextState[]|null,
@@ -29,9 +32,16 @@ export default class MainApp extends Component<{}, State> {
 		try {
 			var searchState = await getSearchState();
 		}catch(_) {
-			this.setState({error: "Game information not loaded - visit the inventory and quest pages"});
+			this.setState({error: "Game information not loaded - visit the inventory and quest pages", finish: true});
 			return;
 		}
+		this.setState({
+			state: [{
+				actions: [],
+				state: searchState,
+				timeTaken: 0,
+			}],
+		});
 		let questStages: NextState[] = [];
 		let previousCompletedCount = 0;
 		let lastState = await greedySearchState(searchState, (state) => {
@@ -78,11 +88,14 @@ export default class MainApp extends Component<{}, State> {
 	render() {
 		return (
 			<>
-				<header class="bg-white p-2 border-b-1 border-b-slate-100">
+				<header class="bg-white p-2 border-b-1 border-b-slate-100 flex justify-between">
 					<div class="font-bold">Farm RPG Guide</div>
+					<div class="font-xs">{actionsSearched.actions} actions searched</div>
 				</header>
-				{this.state.error ? <div class="bg-red-200 m-2 rounded-md border-1 border-red-500 p-2">{this.state.error}</div> : null}
-				<QuestTable state={this.state.state} finish={this.state.finish} />
+				{this.state.error && <div class="bg-red-200 m-2 rounded-md border-1 border-red-500 p-2">{this.state.error}</div>}
+				{this.state.state && this.state.state.length > 0 && <ActionDisplay actions={this.state.state[this.state.state.length-1].actions} />}
+				<Result state={this.state.state} finish={this.state.finish} />
+				{this.state.state && this.state.state.length > 0 && <PlayerInfo state={this.state.state[this.state.state.length-1].state} />}
 			</>
 		)
 	}

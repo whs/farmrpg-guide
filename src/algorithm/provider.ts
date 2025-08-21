@@ -18,7 +18,7 @@ import {
 	ORANGE_ID,
 	ORANGE_JUICE_ID,
 	Provider,
-	SearchState, STEAK_ID, STEAK_KABOB_ID, STONE_ID, STRAW_ID, TRIBAL_MASK_ID, WATER_ORB_ID, WHEAT_ID, WOOD_ID, WORM_ID
+	SearchState, STEAK_ID, STEAK_KABOB_ID, STEEL_ID, STEEL_WIRE_ID, STONE_ID, STRAW_ID, TRIBAL_MASK_ID, WATER_ORB_ID, WHEAT_ID, WOOD_ID, WORM_ID
 } from "./types.ts";
 import {getItemInfo, ItemInfo, LocationInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {DropRatesItem} from "src/data/types/graphql.ts";
@@ -922,6 +922,8 @@ export class WaitForHourly implements Provider {
 			draft.inventory = draft.inventory.slice();
 			increaseInventoryItem(draft.inventory, BOARD_ID, this.#state.playerInfo.sawmillBoard, this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, WOOD_ID, this.#state.playerInfo.sawmillWood, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, STEEL_ID, this.#state.playerInfo.steelworksSteel, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, STEEL_WIRE_ID, this.#state.playerInfo.steelworksSteelWire, this.#state.playerInfo.maxInventory);
 		})
 	}
 	
@@ -978,7 +980,7 @@ export class BuySteak implements Provider {
 	}
 	
 	toString(): string {
-		return "Buy Steak ×${this.#amount}"
+		return `Buy Steak ×${this.amount}`
 	}
 }
 
@@ -1005,6 +1007,6 @@ export class BuySteakKabob implements Provider {
 	}
 	
 	toString(): string {
-		return "Buy Steak Kabob ×${this.#amount}"
+		return `Buy Steak Kabob ×${this.amount}`
 	}
 }

@@ -10,7 +10,7 @@ interface Props {
 	finish: boolean
 }
 
-export default class QuestTable extends Component<Props, any> {
+export default class Result extends Component<Props, any> {
 	render() {
 		if(!this.props.state){
 			return (
@@ -43,7 +43,7 @@ export default class QuestTable extends Component<Props, any> {
 					
 
 					return (
-						<div class="bg-white m-3 rounded-md border-1 border-slate-200 p-2">
+						<div class="bg-white m-3 rounded-md border-1 border-slate-200 p-2" key={index}>
 							<div class="flex flex-row items-center font-bold mb-2">
 								<div class="bg-slate-300 flex items-center justify-center rounded-md mr-2 px-2 bg-cover bg-left ng-no-repeat text-white text-shadow-md/80 shadow-lg/30 w-8 h-8 text-lg font-black text-center" style={questIcon ? {backgroundImage: `url(${questIcon})`} : {}}>{index + 1}</div>
 								<div class="grow text-base">{questName}</div>
@@ -60,7 +60,7 @@ export default class QuestTable extends Component<Props, any> {
 					<div class="bg-red-200 m-2 rounded-md border-1 border-red-500 p-2">
 						<strong class="text-red-700 text-base mb-2">Quest remaining ({lastState.state.objectives.length})</strong>
 						<ol class="list-decimal pl-6 leading-6">
-							{lastState.state.objectives.map((i) => <li>{i.quest?.name}</li>)}
+							{lastState.state.objectives.map((i) => <li key={i.quest?.name}>{i.quest?.name}</li>)}
 						</ol>
 					</div>
 				) : null}
@@ -70,7 +70,7 @@ export default class QuestTable extends Component<Props, any> {
 
 	formatActions(actions: Provider[]) {
 		return actions.map((action) => {
-			return <ActionRenderer action={action} />;
+			return <li key={action.toString()}><ActionRenderer action={action} /></li>;
 		})
 	}
 }

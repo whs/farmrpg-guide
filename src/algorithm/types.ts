@@ -36,6 +36,8 @@ export interface PlayerInfo {
 	// Hourly
 	sawmillBoard: number,
 	sawmillWood: number,
+	steelworksSteel: number,
+	steelworksSteelWire: number,
 
 	// 10 min-ly
 	hayfieldStraw: number,
@@ -91,11 +93,14 @@ export const STRAW_ID = 128;
 export const STONE_ID = 40;
 export const COAL_ID = 103;
 export const GRAPES_ID = 120;
+export const GRAPE_JUICE_ID = 112;
 export const WHEAT_ID = 71;
 export const FLOUR_ID = 276;
 export const FEED_ID = 275;
 export const STEAK_ID = 137;
 export const STEAK_KABOB_ID = 197;
+export const STEEL_ID = 145;
+export const STEEL_WIRE_ID = 392;
 
 export class GameplayError extends Error {
 }

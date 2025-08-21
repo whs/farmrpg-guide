@@ -1,5 +1,9 @@
 import {Quest, QuestType} from '../types.ts';
 
+function parseNumber(text: string): number {
+	return parseInt(text.replace(/,/g, ''), 10);
+}
+
 function getMutationCenterPage(records: MutationRecord[]) {
 	for (let record of records) {
 		if (record.addedNodes.length === 0) {
@@ -28,7 +32,7 @@ async function handleInventoryPage(page: HTMLDivElement) {
 		if (!match) {
 			continue;
 		}
-		maxInventorySize = parseInt(match[1], 10);
+		maxInventorySize = parseNumber(match[1]);
 	}
 
 	let inventory: number[] = [];
@@ -44,10 +48,7 @@ async function handleInventoryPage(page: HTMLDivElement) {
 		}
 		let itemId = parseInt(itemIdMatch[1], 10);
 		let itemName = item.querySelector('.item-title strong')!!.textContent;
-		let itemCount = parseInt(
-			item.querySelector('.item-after')!!.textContent,
-			10
-		);
+		let itemCount = parseNumber(item.querySelector('.item-after')!!.textContent);
 		inventory[itemId] = itemCount;
 		itemNames[itemId] = itemName;
 	}
@@ -97,7 +98,7 @@ async function handleQuestsPage(page: HTMLDivElement) {
 }
 
 const skillRegex = /([A-Za-z]+)Level[ ]+([0-9]+)/;
-const growingRegex = /([0-9]+) (Growing|READY!)/;
+const growingRegex = /([0-9,]+) (Growing|READY!)/;
 async function handleIndexPage(page: HTMLDivElement) {
 	let skillLevels: Record<string, number> = {};
 	for (let skill of page.querySelectorAll('a[href^="progress.php?type="]')) {
@@ -108,65 +109,65 @@ async function handleIndexPage(page: HTMLDivElement) {
 
 	let growing = growingRegex.exec(document.querySelector(".ready[data-id]")!!.textContent)!!;
 	let {farmSize} = await chrome.storage.local.get(["farmSize"]);
-	let newFarmSize = Math.max(parseInt(growing[1], 10), farmSize || 16);
+	let newFarmSize = Math.max(parseNumber(growing[1]), farmSize || 16);
 	if(newFarmSize && !isNaN(newFarmSize)) {
 		chrome.storage.local.set({farmSize: newFarmSize});
 	}
 }
 
-const eggsRegex = /Currently, your chicken coop is producing ([0-9]+) egg[s]? and ([0-9]+) feather[s]? per day/;
+const eggsRegex = /Currently, your chicken coop is producing ([0-9,]+) egg[s]? and ([0-9,]+) feather[s]? per day/;
 async function handleCoopPage(_: HTMLDivElement) {
 	let eggsFeathers = eggsRegex.exec(document.getElementById("animationArea")!!.textContent);
 	if(!eggsFeathers){
 		return;
 	}
 	chrome.storage.local.set({
-		coopEggs: parseInt(eggsFeathers[1], 10),
-		coopFeathers: parseInt(eggsFeathers[2], 10),
+		coopEggs: parseNumber(eggsFeathers[1]),
+		coopFeathers: parseNumber(eggsFeathers[2]),
 	})
 }
 
-const milkRegex = /Currently, your cow pasture is producing ([0-9]+) milk per day/;
+const milkRegex = /Currently, your cow pasture is producing ([0-9,]+) milk per day/;
 async function handlePasturePage(_: HTMLDivElement) {
 	let milk = milkRegex.exec(document.getElementById("animationArea")!!.textContent);
 	if(!milk){
 		return;
 	}
 	chrome.storage.local.set({
-		pastureMilk: parseInt(milk[1], 10),
+		pastureMilk: parseNumber(milk[1]),
 	})
 }
 
-const boardRegex = /Your sawmill will generate boards every hour.[ ]+Currently generating ([0-9]+) per hour/;
-const woodRegex = /Your sawmill will generate wood every hour.[ ]+Currently generating ([0-9]+) per hour/;
+const boardRegex = /Your sawmill will generate boards every hour.[ ]+Currently generating ([0-9,]+) per hour/;
+const woodRegex = /Your sawmill will generate wood every hour.[ ]+Currently generating ([0-9,]+) per hour/;
 async function handleSawmillPage(_: HTMLDivElement) {
 	let pageContent = document.body.textContent;
 	let board = boardRegex.exec(pageContent);
 	let wood = woodRegex.exec(pageContent);
 	chrome.storage.local.set({
-		sawmillBoard: board ? parseInt(board[1], 10) : 0,
-		sawmillWood: wood ? parseInt(wood[1], 10) : 0,
+		sawmillBoard: board ? parseNumber(board[1]) : 0,
+		sawmillWood: wood ? parseNumber(wood[1]) : 0,
 	})
 }
 
-const strawRegex = /Your hay field will generate straw every 10 minutes.[ ]+Currently generating ([0-9]+) Straw every 10 minutes/;
+const strawRegex = /Your hay field will generate straw every 10 minutes.[ ]+Currently generating ([0-9,]+) Straw every 10 minutes/;
 async function handleHayfieldPage(_: HTMLDivElement) {
 	let pageContent = document.body.textContent;
 	let straw = strawRegex.exec(pageContent);
 	chrome.storage.local.set({
-		hayfieldStraw: straw ? parseInt(straw[1], 10) : 0,
+		hayfieldStraw: straw ? parseNumber(straw[1]) : 0,
 	})
 }
 
-const stoneRegex = /Your quarry will generate regular stone and sandstone every 10 minutes.[ ]+Currently generating ([0-9]+) every 10 minutes/;
-const coalRegex = /Your quarry will generate coal every hour.[ ]+Currently generating ([0-9]+) per hour/;
+const stoneRegex = /Your quarry will generate regular stone and sandstone every 10 minutes.[ ]+Currently generating ([0-9,]+) every 10 minutes/;
+const coalRegex = /Your quarry will generate coal every hour.[ ]+Currently generating ([0-9,]+) per hour/;
 async function handleQuarryPage(_: HTMLDivElement) {
 	let pageContent = document.body.textContent;
 	let stone = stoneRegex.exec(pageContent);
 	let coal = coalRegex.exec(pageContent);
 	chrome.storage.local.set({
-		quarryStone: stone ? parseInt(stone[1], 10) : 0,
-		quarryCoal: coal ? parseInt(coal[1], 10) : 0,
+		quarryStone: stone ? parseNumber(stone[1]) : 0,
+		quarryCoal: coal ? parseNumber(coal[1]) : 0,
 	});
 }
 
@@ -176,18 +177,28 @@ async function handleOrchardPage(page: HTMLDivElement) {
 	let lemonProduction = page.querySelector('a[href="item.php?id=62"]')!!.parentElement?.querySelectorAll("strong")[1].textContent!!;
 
 	chrome.storage.local.set({
-		orchardApple: parseInt(appleProduction, 10),
-		orchardOrange: parseInt(orangeProduction, 10),
-		orchardLemon: parseInt(lemonProduction, 10),
+		orchardApple: parseNumber(appleProduction),
+		orchardOrange: parseNumber(orangeProduction),
+		orchardLemon: parseNumber(lemonProduction),
 	});
 }
 
-const grapesRegex = /Your vineyard will generate grapes every day.[ ]+Currently generating ([0-9]+) per day/;
+const grapesRegex = /Your vineyard will generate grapes every day.[ ]+Currently generating ([0-9,]+) per day/;
 async function handleVineyardPage(_: HTMLDivElement) {
 	let pageContent = document.body.textContent;
 	let grapes = grapesRegex.exec(pageContent);
 	chrome.storage.local.set({
-		vineyardGrapes: grapes ? parseInt(grapes[1], 10) : 0,
+		vineyardGrapes: grapes ? parseNumber(grapes[1]) : 0,
+	});
+}
+
+const steelworksRegex = /Your steelworks will generate steel and steel wire every 60 minutes.[ ]+Currently generating ([0-9,]+) Steel and ([0-9,]+) Steel Wire every 60 minutes/;
+async function handleSteelworksPage(_: HTMLDivElement) {
+	let pageContent = document.body.textContent;
+	let steelworks = steelworksRegex.exec(pageContent);
+	chrome.storage.local.set({
+		steelworksSteel: steelworks ? parseNumber(steelworks[1]) : 0,
+		steelworksSteelWire: steelworks ? parseNumber(steelworks[2]) : 0,
 	});
 }
 
@@ -224,8 +235,8 @@ let pageChangeMonitor = new MutationObserver((records) => {
 		'a[href="bank.php"] img[alt="Silver"]'
 	);
 	if (silverIcon !== null) {
-		let silver = silverIcon.nextElementSibling?.textContent.replace(/,/g, '')!!;
-		chrome.storage.local.set({silver: parseInt(silver, 10)});
+		let silver = silverIcon.nextElementSibling?.textContent!!;
+		chrome.storage.local.set({silver: parseNumber(silver)});
 	}
 
 	let page = getMutationCenterPage(records);
@@ -265,6 +276,8 @@ let pageChangeMonitor = new MutationObserver((records) => {
 		handleOrchardPage(page);
 	} else if (page.dataset['page'] === 'vineyard') {
 		handleVineyardPage(page);
+	} else if (page.dataset['page'] === 'steelworks') {
+		handleSteelworksPage(page);
 	}
 });
 let pages = document.querySelector('#fireworks .pages')!!;
