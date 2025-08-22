@@ -2,6 +2,7 @@ import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Provid
 import {getItemInfo, getLocationInfo, isExplorable, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {BuyItemStore, BuySteak, BuySteakKabob, CraftItem, ExploreArea, FarmPlant, FeedMill, FlourMill, ManualFishing, NetFishing, SubmitQuest, WaitFor10Min, WaitForHourly, WaitForReset} from "./provider.ts";
 import {castDraft, produce} from "immer";
+import { delay, invariant } from "es-toolkit";
 
 export const actionsSearched = {actions: 0};
 
@@ -25,12 +26,6 @@ export function greedySearchState(state: SearchState, emit: (_: NextState) => vo
 		state: state,
 		timeTaken: 0,
 	}, emit)
-}
-
-export function sleep(time: number): Promise<void> {
-	return new Promise((resolve) => {
-		setTimeout(resolve, time);
-	})
 }
 
 async function _greedySearchState(state: NextState, emit: (_: NextState) => void): Promise<NextState> {
@@ -68,7 +63,7 @@ async function _greedySearchState(state: NextState, emit: (_: NextState) => void
 	}
 
 	emit(bestFuture);
-	await sleep(10);
+	await delay(10);
 
 	return _greedySearchState(bestFuture, emit);
 }
@@ -137,7 +132,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	}
 
 	// Don't search too hard
-	await sleep(1);
+	await delay(1);
 
 	return tryToCompleteObjective(bestStrategy!!, objective);
 }
@@ -243,9 +238,7 @@ async function getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo, 
 }
 
 async function _getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo, amount: number): Promise<number> {
-	if(isNaN(amount)){
-		throw new Error(`NaN is not supported (asking for item ${item.name})`)
-	}
+	invariant(isNaN(amount), `NaN is not supported (asking for item ${item.name})`)
 	if(amount <= 0 || inventory[item.id] >= amount) {
 		// We have enough items
 		return 1;
