@@ -222,7 +222,7 @@ export class ExploreArea implements Action {
 
 	collapseWith(action: Action) {
 		if(action instanceof ExploreArea && action.area.id === this.area.id && action.item.id === this.item.id) {
-			this.amount += action.amount;
+			this.amount = Math.min(action.#lastState.playerInfo.maxInventory, this.amount + action.amount);
 			return this;
 		}
 

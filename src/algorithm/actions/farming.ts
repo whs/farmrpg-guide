@@ -132,7 +132,7 @@ export class FarmPlant implements Action {
 
 	collapseWith(action: Action): Action | null {
 		if(action instanceof FarmPlant && action.seed.id === this.seed.id && action.output.id === this.output.id) {
-			this.desired += action.desired;
+			this.desired = Math.min(action.#lastState.playerInfo.maxInventory, this.desired + action.desired);
 			return this;
 		}
 		return null;

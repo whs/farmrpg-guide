@@ -67,7 +67,7 @@ export class CraftItem implements Action {
 
 	collapseWith(action: Action) {
 		if(action instanceof CraftItem && action.item.id === this.item.id) {
-			this.amount += action.amount;
+			this.amount = Math.min(action.#lastState.playerInfo.maxInventory, this.amount + action.amount);
 			this.craftTimes += action.craftTimes;
 			return this;
 		}

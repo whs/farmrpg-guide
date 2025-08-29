@@ -106,7 +106,7 @@ export class BuyItemStore implements Action {
 			return action;
 		}
 		if(action instanceof BuyItemStore && action.item.id === this.item.id) {
-			this.amount += action.amount;
+			this.amount = Math.min(action.#lastState.playerInfo.maxInventory, this.amount + action.amount);
 			return this;
 		}
 		return null;
@@ -150,7 +150,7 @@ export class OpenChest implements Action {
 
 	collapseWith(action: Action): Action | null {
 		if(action instanceof OpenChest && action.chest.id === this.chest.id) {
-			this.amount += action.amount;
+			this.amount = Math.min(action.#lastState.playerInfo.maxInventory, this.amount + action.amount);
 			return this;
 		}
 		return null;

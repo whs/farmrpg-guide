@@ -9,7 +9,6 @@ import {ManualFishing, NetFishing} from "./actions/fishing.ts";
 import {CraftItem} from "./actions/crafting.ts";
 import {FeedMill, FlourMill, WaitFor, WaitForReset} from "./actions/passive.ts";
 import {BuySteak, BuySteakKabob} from "./ui.ts";
-import { MENUING_TIME } from "./utils.ts";
 
 export const actionsSearched = {actions: 0};
 
@@ -107,6 +106,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		actionsSearched.actions++;
 		return produce(state, (draft) => {
 			// Add current action to the action list, but try merging if possible
+			// TODO: This could be done last so we don't have to try it with every strategies, but I don't think it's a huge optimization
 			(() => {
 				if (draft.actions.length > 0){
 					let lastItem  = draft.actions[draft.actions.length - 1];
@@ -130,7 +130,6 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	}
 
 	let bestStrategy = viableStrategies[0];
-	// Score = (newCompletion - oldCompletion)/timeTaken (completion % per ms)
 	let bestCompletionScore = 0;
 
 	for (let strategy of viableStrategies) {
@@ -140,11 +139,12 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 			return strategy;
 		}
 
-		// For scoring purpose, menu time is added as deduction to score to discourage switching between actions
-		let addedActions = strategy.actions.length - state.actions.length;
 		let completionPercent = await getQuestCompletionPercent(strategy.state.inventory, objective.quest!!);
 		// console.log("Strategy", strategy.actions[strategy.actions.length-1].toString(), "completion percent", completionPercent);
-		let completionScore = (completionPercent - currentCompletionPercent) / ((strategy.timeTaken + (addedActions * MENUING_TIME)) - state.timeTaken);
+
+		// Score = (newCompletion - oldCompletion)/timeTaken (completion % per ms)
+		let completionScore = (completionPercent - currentCompletionPercent) / (strategy.timeTaken - state.timeTaken);
+
 		if(bestStrategy === null || completionScore > bestCompletionScore){
 			bestStrategy = strategy;
 			bestCompletionScore = completionScore;
