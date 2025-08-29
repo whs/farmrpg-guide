@@ -2,7 +2,7 @@ import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Action
 import {getItemInfo, getLocationInfo, isExplorable, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {castDraft, produce} from "immer";
 import { delay, invariant } from "es-toolkit";
-import {BuyItemStore, SubmitQuest} from "./actions/ui.ts";
+import {BuyItemStore, OpenChest, SubmitQuest} from "./actions/ui.ts";
 import {FarmPlant} from "./actions/farming.ts";
 import {ExploreArea} from "./actions/exploring.ts";
 import {ManualFishing, NetFishing} from "./actions/fishing.ts";
@@ -227,6 +227,20 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 		}
 	}
 
+	// Don't open chest to find chest
+	if(item.locksmithItems.length === 0 && item.locksmithOutputItems.length > 0){
+		out.push(...(await Promise.all(item.locksmithOutputItems.map(async (chest) => {
+			let averageRoll = (chest.quantityMin!! + chest.quantityMax!!) / 2;
+			let chestsNeeded = Math.ceil(itemsNeeded/averageRoll);
+			
+			let chestInfo = await getItemInfo(chest.item.name);
+			
+			// Open chest one by one in case we already have them. It is generally hard to acquire all the chests
+			out.push(new OpenChest(chestInfo, 1, state.state));
+			return await tryToGetItem(state, chestInfo, chestsNeeded);
+		}))).flat());
+	}
+
 	return out;
 }
 
@@ -286,6 +300,17 @@ async function _getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo,
 			farmingCompletion = (seedAvailability * grapeJuicesNeeded * 0.9) + (seedAvailability * (1-grapeJuicesNeeded) * 0.5);
 			break;
 		}
+	}
+
+	// If we have the chest, reduce items needed
+	let chestSaved = 0;
+	for (let chest of item.locksmithOutputItems) {
+		let averageRoll = (chest.quantityMin!! + chest.quantityMax!!) / 2;
+		// Items in chest count as 80% of real item
+		let rollsSaved = (Math.min(averageRoll * inventory[chest.item.id], itemsLeft) / itemsLeft) * 0.8;
+		// TODO: Key - this function is not async so we don't have chest key info
+
+		chestSaved = Math.max(chestSaved, rollsSaved);
 	}
 
 
@@ -348,7 +373,7 @@ async function _getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo,
 	}
 
 	// Use the best completion method for remaining items
-	let remainingCompletion = Math.max(farmingCompletion, exploreCompletion, recipeCompletion);
+	let remainingCompletion = Math.max(farmingCompletion, exploreCompletion, recipeCompletion, chestSaved);
 	
 	return baseCompletion + (itemsLeft / amount) * remainingCompletion;
 }

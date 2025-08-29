@@ -1,6 +1,6 @@
 import { Component, Fragment } from "preact";
 import { Action } from "../../algorithm/types";
-import { ActionRenderer } from "./provider";
+import { ActionRenderer } from "./actions.tsx";
 import {FarmPlant} from "../../algorithm/actions/farming.ts";
 import {ExploreArea} from "../../algorithm/actions/exploring.ts";
 import {ManualFishing, NetFishing} from "../../algorithm/actions/fishing.ts";

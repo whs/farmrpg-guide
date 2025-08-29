@@ -3,7 +3,7 @@ import {NextState} from "../../algorithm/search.ts";
 import {Objective, Action} from "../../algorithm/types.ts";
 import { formatDuration } from "../utils.ts";
 import Loader from "./Loader.tsx";
-import { ActionRenderer } from "./provider.tsx";
+import { ActionRenderer } from "./actions.tsx";
 
 interface Props {
 	state: NextState[]|null,

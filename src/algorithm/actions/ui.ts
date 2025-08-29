@@ -101,7 +101,55 @@ export class BuyItemStore implements Action {
 	}
 
 	collapseWith(action: Action): Action | null {
+		// Skip buying nails/iron if the perks are purchased
+		if (this.#lastState.playerInfo.goldPerks.includes("Iron Depot") && [IRON_ID, NAILS_ID].includes(this.item.id)) {
+			return action;
+		}
 		if(action instanceof BuyItemStore && action.item.id === this.item.id) {
+			this.amount += action.amount;
+			return this;
+		}
+		return null;
+	}
+}
+
+export class OpenChest implements Action {
+	chest: ItemInfo;
+	amount: number;
+	#lastState: SearchState;
+
+	constructor(chest: ItemInfo, amount: number, state: SearchState) {
+		this.chest = chest;
+		this.amount = Math.min(state.playerInfo.maxInventory, amount);
+		this.#lastState = state;
+	}
+
+	getTimeRequired(): number {
+		return MENUING_TIME;
+	}
+
+	async nextState(): Promise<SearchState> {
+		return produce(this.#lastState, (draft) => {
+			draft.inventory = this.#lastState.inventory.slice();
+
+			increaseInventoryItem(draft.inventory, this.chest.id, -this.amount, this.#lastState.playerInfo.maxInventory);
+			if(this.chest.locksmithKey){
+				increaseInventoryItem(draft.inventory, this.chest.locksmithKey.id, -this.amount, this.#lastState.playerInfo.maxInventory);
+			}
+
+			for(let item of this.chest.locksmithItems) {
+				let averageRoll = (item.quantityMax!! + item.quantityMin!!) / 2;
+				increaseInventoryItem(draft.inventory, item.outputItem.id, Math.floor(this.amount * averageRoll), this.#lastState.playerInfo.maxInventory);
+			}
+		})
+	}
+
+	toString(): string {
+		return `Open ${this.chest.name} ×${this.amount}`;
+	}
+
+	collapseWith(action: Action): Action | null {
+		if(action instanceof OpenChest && action.chest.id === this.chest.id) {
 			this.amount += action.amount;
 			return this;
 		}
