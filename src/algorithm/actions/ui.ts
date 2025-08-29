@@ -99,4 +99,12 @@ export class BuyItemStore implements Action {
 	toString(): string {
 		return `Buy ${this.item.name} ×${this.amount}`;
 	}
+
+	collapseWith(action: Action): Action | null {
+		if(action instanceof BuyItemStore && action.item.id === this.item.id) {
+			this.amount += action.amount;
+			return this;
+		}
+		return null;
+	}
 }

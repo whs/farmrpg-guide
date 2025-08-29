@@ -7,6 +7,7 @@ import {
 	FEATHERS_ID,
 	FEED_ID,
 	FLOUR_ID,
+	GameplayError,
 	GRAPES_ID,
 	LEMON_ID,
 	MILK_ID,
@@ -20,7 +21,7 @@ import {
 	WOOD_ID
 } from "../types.ts";
 import {ItemInfo} from "../../data/buddyfarm.ts";
-import {produce} from "immer";
+import {original, produce, WritableDraft} from "immer";
 import {getTimeUntilNextReset, increaseInventoryItem} from "../utils.ts";
 
 export class FlourMill implements Action {
@@ -54,6 +55,14 @@ export class FlourMill implements Action {
 			increaseInventoryItem(draft.inventory, WHEAT_ID, -Math.ceil(this.#amount / 14.4), this.#state.playerInfo.maxInventory);
 			increaseInventoryItem(draft.inventory, FLOUR_ID, this.#amount, this.#state.playerInfo.maxInventory);
 		});
+	}
+
+	collapseWith(action: Action): Action | null {
+		if(action instanceof FlourMill) {
+			this.#amount += action.#amount;
+			return this;
+		}
+		return null;
 	}
 }
 
@@ -103,6 +112,14 @@ export class FeedMill implements Action {
 			increaseInventoryItem(draft.inventory, FEED_ID, this.#amount, this.#state.playerInfo.maxInventory);
 		});
 	}
+
+	collapseWith(action: Action): Action | null {
+		if(action instanceof FeedMill && action.#input.id === this.#input.id) {
+			this.#amount += action.#amount;
+			return this;
+		}
+		return null;
+	}
 }
 
 export class WaitForReset implements Action {
@@ -113,26 +130,30 @@ export class WaitForReset implements Action {
 	}
 
 	getTimeRequired(): number {
-		if (this.#state.waitedForReset) {
-			return 24 * 60 * 60000;
-		}
-
 		return getTimeUntilNextReset();
 	}
 
 	async nextState(): Promise<SearchState> {
+		if(this.#state.waitedForReset) {
+			throw new GameplayError("Cannot use WaitForReset - use WaitFor")
+		}
 		return produce(this.#state, (draft) => {
 			draft.inventory = this.#state.inventory.slice();
-			// Trees already include the perk bonuses
-			increaseInventoryItem(draft.inventory, APPLE_ID, this.#state.playerInfo.orchardApple, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, ORANGE_ID, this.#state.playerInfo.orchardOrange, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, LEMON_ID, this.#state.playerInfo.orchardLemon, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, EGGS_ID, this.#state.playerInfo.coopEggs, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, FEATHERS_ID, this.#state.playerInfo.coopFeathers, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, MILK_ID, this.#state.playerInfo.pastureMilk, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, GRAPES_ID, this.#state.playerInfo.vineyardGrapes, this.#state.playerInfo.maxInventory);
-			draft.waitedForReset = true;
+			WaitForReset._updateDaily(draft, 1);
 		})
+	}
+
+	static _updateDaily(draft: WritableDraft<SearchState>, count: number) {
+		let state = original(draft)!!;
+		// Trees already include the perk bonuses
+		increaseInventoryItem(draft.inventory, APPLE_ID, state.playerInfo.orchardApple * count, state.playerInfo.maxInventory);
+		increaseInventoryItem(draft.inventory, ORANGE_ID, state.playerInfo.orchardOrange * count, state.playerInfo.maxInventory);
+		increaseInventoryItem(draft.inventory, LEMON_ID, state.playerInfo.orchardLemon * count, state.playerInfo.maxInventory);
+		increaseInventoryItem(draft.inventory, EGGS_ID, state.playerInfo.coopEggs * count, state.playerInfo.maxInventory);
+		increaseInventoryItem(draft.inventory, FEATHERS_ID, state.playerInfo.coopFeathers * count, state.playerInfo.maxInventory);
+		increaseInventoryItem(draft.inventory, MILK_ID, state.playerInfo.pastureMilk * count, state.playerInfo.maxInventory);
+		increaseInventoryItem(draft.inventory, GRAPES_ID, state.playerInfo.vineyardGrapes * count, state.playerInfo.maxInventory);
+		draft.waitedForReset = true;
 	}
 
 	toString(): string {
@@ -140,53 +161,55 @@ export class WaitForReset implements Action {
 	}
 }
 
-export class WaitForHourly implements Action {
-	#state: SearchState
+export class WaitFor implements Action {
+	#state: SearchState;
+	mins: number;
+	#tenMinCount: number;
+	#hourlyCount: number;
+	#dailyCount: number;
 
-	constructor(state: SearchState) {
+	constructor(state: SearchState, mins: number) {
 		this.#state = state;
+		this.mins = mins;
+		this.#tenMinCount = Math.floor(mins / 10);
+		this.#hourlyCount = Math.floor(mins / 60);
+		this.#dailyCount = Math.floor(mins / (24*60));
 	}
 
 	getTimeRequired(): number {
-		return 60 * 60000;
+		return this.mins * 60000;
 	}
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
 			draft.inventory = this.#state.inventory.slice();
-			increaseInventoryItem(draft.inventory, BOARD_ID, this.#state.playerInfo.sawmillBoard, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, WOOD_ID, this.#state.playerInfo.sawmillWood, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, STEEL_ID, this.#state.playerInfo.steelworksSteel, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, STEEL_WIRE_ID, this.#state.playerInfo.steelworksSteelWire, this.#state.playerInfo.maxInventory);
-		})
+			increaseInventoryItem(draft.inventory, BOARD_ID, this.#state.playerInfo.sawmillBoard * this.#hourlyCount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, WOOD_ID, this.#state.playerInfo.sawmillWood * this.#hourlyCount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, STEEL_ID, this.#state.playerInfo.steelworksSteel * this.#hourlyCount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, STEEL_WIRE_ID, this.#state.playerInfo.steelworksSteelWire * this.#hourlyCount, this.#state.playerInfo.maxInventory);
+
+			increaseInventoryItem(draft.inventory, STRAW_ID, this.#state.playerInfo.hayfieldStraw * this.#tenMinCount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, STONE_ID, this.#state.playerInfo.quarryStone * this.#tenMinCount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft.inventory, COAL_ID, this.#state.playerInfo.quarryCoal * this.#tenMinCount, this.#state.playerInfo.maxInventory);
+
+			WaitForReset._updateDaily(draft, this.#dailyCount);
+		});
 	}
 
 	toString(): string {
-		return "Wait for next hour"
-	}
-}
-
-export class WaitFor10Min implements Action {
-	#state: SearchState
-
-	constructor(state: SearchState) {
-		this.#state = state;
+		if(this.#dailyCount > 0){
+			return `Wait for ${this.#dailyCount} days`;
+		}
+		if(this.#hourlyCount > 0){
+			return `Wait for ${this.#hourlyCount} hours`;
+		}
+		return `Wait for ${this.#tenMinCount * 10} minutes`;
 	}
 
-	getTimeRequired(): number {
-		return 10 * 60000;
-	}
-
-	async nextState(): Promise<SearchState> {
-		return produce(this.#state, (draft) => {
-			draft.inventory = this.#state.inventory.slice();
-			increaseInventoryItem(draft.inventory, STRAW_ID, this.#state.playerInfo.hayfieldStraw, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, STONE_ID, this.#state.playerInfo.quarryStone, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, COAL_ID, this.#state.playerInfo.quarryCoal, this.#state.playerInfo.maxInventory);
-		})
-	}
-
-	toString(): string {
-		return "Wait for 10 minutes"
+	collapseWith(action: Action): Action | null {
+		if (action instanceof WaitFor) {
+			return new WaitFor(this.#state, this.mins + action.mins);
+		}
+		return null;
 	}
 }

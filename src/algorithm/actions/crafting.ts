@@ -64,4 +64,14 @@ export class CraftItem implements Action {
 			increaseInventoryItem(draft.inventory, this.item.id, this.amount, this.#lastState.playerInfo.maxInventory);
 		});
 	}
+
+	collapseWith(action: Action) {
+		if(action instanceof CraftItem && action.item.id === this.item.id) {
+			this.amount += action.amount;
+			this.craftTimes += action.craftTimes;
+			return this;
+		}
+
+		return null;
+	}
 }

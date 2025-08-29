@@ -7,8 +7,9 @@ import {FarmPlant} from "./actions/farming.ts";
 import {ExploreArea} from "./actions/exploring.ts";
 import {ManualFishing, NetFishing} from "./actions/fishing.ts";
 import {CraftItem} from "./actions/crafting.ts";
-import {FeedMill, FlourMill, WaitFor10Min, WaitForHourly, WaitForReset} from "./actions/passive.ts";
+import {FeedMill, FlourMill, WaitFor, WaitForReset} from "./actions/passive.ts";
 import {BuySteak, BuySteakKabob} from "./ui.ts";
+import { MENUING_TIME } from "./utils.ts";
 
 export const actionsSearched = {actions: 0};
 
@@ -78,10 +79,14 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	// TODO: Probably better ideas
 	let strategies: Action[] = [
 		new SubmitQuest(objective.quest!!, state.state),
-		new WaitForReset(state.state),
-		new WaitForHourly(state.state),
-		new WaitFor10Min(state.state),
+		new WaitFor(state.state, 10),
+		new WaitFor(state.state, 60),
 	];
+
+	if(!state.state.waitedForReset){
+		strategies.push(new WaitForReset(state.state));
+	}
+
 	strategies.push(...(await Promise.all(objective.quest!!.requiredItems.map(async (requiredItem) => {
 		let itemInfo = await getItemInfo(requiredItem.item.name);
 		return await tryToGetItem(state, itemInfo, requiredItem.quantity);
@@ -101,7 +106,20 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		}
 		actionsSearched.actions++;
 		return produce(state, (draft) => {
-			draft.actions.push(strategy);
+			// Add current action to the action list, but try merging if possible
+			(() => {
+				if (draft.actions.length > 0){
+					let lastItem  = draft.actions[draft.actions.length - 1];
+					if(lastItem.collapseWith){
+						let newItem = lastItem.collapseWith(strategy);
+						if(newItem !== null){
+							draft.actions[draft.actions.length - 1] = newItem
+							return;
+						}
+					}
+				}
+				draft.actions.push(strategy);
+			})();
 			draft.state = castDraft(nextState);
 			draft.timeTaken += strategy.getTimeRequired();
 		});
@@ -122,9 +140,11 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 			return strategy;
 		}
 
+		// For scoring purpose, menu time is added as deduction to score to discourage switching between actions
+		let addedActions = strategy.actions.length - state.actions.length;
 		let completionPercent = await getQuestCompletionPercent(strategy.state.inventory, objective.quest!!);
 		// console.log("Strategy", strategy.actions[strategy.actions.length-1].toString(), "completion percent", completionPercent);
-		let completionScore = (completionPercent - currentCompletionPercent) / (strategy.timeTaken - state.timeTaken);
+		let completionScore = (completionPercent - currentCompletionPercent) / ((strategy.timeTaken + (addedActions * MENUING_TIME)) - state.timeTaken);
 		if(bestStrategy === null || completionScore > bestCompletionScore){
 			bestStrategy = strategy;
 			bestCompletionScore = completionScore;

@@ -56,9 +56,22 @@ export interface Skills {
 }
 
 export interface Action {
-	getTimeRequired(): number,
 	nextState(): Promise<SearchState>,
+
+	/**
+	 * Get time required to complete this action in millis.
+	 * Must be called after nextState()
+	 */
+	getTimeRequired(): number,
 	toString(): string,
+
+	/**
+	 * Merge this action with another action. The other action must happen direct AFTER the current action
+	 * The merged action is only valid for display purposes.
+	 * Both actions are invalid after calling this fuction
+	 * @return Merged action, or null if it cannot be merged
+	 */
+	collapseWith?(action: Action): Action|null,
 }
 
 export const LEMONADE_ID = 86;

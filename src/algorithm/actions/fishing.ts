@@ -151,6 +151,14 @@ export class ManualFishing implements Action {
 			}
 		});
 	}
+
+	collapseWith(action: Action): Action | null {
+		if(action instanceof ManualFishing && action.area.id === this.area.id && action.item.id === this.item.id) {
+			this.amount += action.amount;
+			return this;
+		}
+		return null;
+	}
 }
 
 export class NetFishing implements Action {
@@ -268,5 +276,13 @@ export class NetFishing implements Action {
 				);
 			}
 		});
+	}
+
+	collapseWith(action: Action): Action | null {
+		if(action instanceof NetFishing && action.area.id === this.area.id && action.item.id === this.item.id) {
+			this.amount += action.amount;
+			return this;
+		}
+		return null;
 	}
 }
