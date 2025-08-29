@@ -1,10 +1,13 @@
 import { Component, Fragment } from "preact";
-import { Provider } from "../../algorithm/types";
-import { CraftItem, ExploreArea, FarmPlant, ManualFishing, NetFishing } from "../../algorithm/provider";
+import { Action } from "../../algorithm/types";
 import { ActionRenderer } from "./provider";
+import {FarmPlant} from "../../algorithm/actions/farming.ts";
+import {ExploreArea} from "../../algorithm/actions/exploring.ts";
+import {ManualFishing, NetFishing} from "../../algorithm/actions/fishing.ts";
+import {CraftItem} from "../../algorithm/actions/crafting.ts";
 
 interface Props {
-	actions: readonly Provider[],
+	actions: readonly Action[],
 }
 
 const skillActions = {
@@ -16,7 +19,7 @@ const skillActions = {
 
 export default class ActionDisplay extends Component<Props> {
 	render() {
-		let actions: {[K in keyof typeof skillActions]?: Provider} = {};
+		let actions: {[K in keyof typeof skillActions]?: Action} = {};
 		let skills = Object.keys(skillActions) as Array<keyof typeof skillActions>;
 		
 		for(let action of this.props.actions) {

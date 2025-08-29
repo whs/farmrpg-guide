@@ -1,10 +1,15 @@
 import { ComponentType, h } from "preact";
-import { Provider } from "../../algorithm/types";
-import { BuyItemStore, BuySteak, BuySteakKabob, CraftItem, ExploreArea, FarmPlant, ManualFishing, NetFishing, SubmitQuest } from "../../algorithm/provider";
+import { Action } from "../../algorithm/types";
 import Item from "./Item";
 import Location from "./Location";
+import {BuyItemStore, SubmitQuest} from "../../algorithm/actions/ui.ts";
+import {FarmPlant} from "../../algorithm/actions/farming.ts";
+import {ExploreArea} from "../../algorithm/actions/exploring.ts";
+import {ManualFishing, NetFishing} from "../../algorithm/actions/fishing.ts";
+import {CraftItem} from "../../algorithm/actions/crafting.ts";
+import {BuySteak, BuySteakKabob} from "../../algorithm/ui.ts";
 
-type ProviderClass<T extends Provider> = new (...args: any[]) => T;
+type ProviderClass<T extends Action> = new (...args: any[]) => T;
 
 const providerComponent = new Map<ProviderClass<any>, ComponentType<{ action: any }>>();
 
@@ -71,7 +76,7 @@ providerComponent.set(CraftItem, (props: {action: CraftItem}) => {
 	);
 });
 
-export function ActionRenderer<T extends Provider>(props: {action: T}) {
+export function ActionRenderer<T extends Action>(props: {action: T}) {
 	let component = providerComponent.get(Object.getPrototypeOf(props.action).constructor);
 	if (!component) {
 		return <div>{props.action.toString()}</div>;

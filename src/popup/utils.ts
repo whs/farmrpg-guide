@@ -4,7 +4,9 @@ import { getQuestInfo } from "../data/buddyfarm";
 import { Quest, QuestType } from "../types";
 
 export async function getSearchState(): Promise<SearchState> {
-	let db = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills", "coopEggs", "coopFeathers", "pastureMilk", "sawmillBoard", "sawmillWood", "hayfieldStraw", "quarryStone", "quarryCoal", "orchardApple", "orchardOrange", "orchardLemon", "vineyardGrapes", "steelworksSteel", "steelworksSteelWire", "farmSize", "perks", "goldPerks"]);
+	let db = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills", "coopEggs", "coopFeathers", "pastureMilk", "sawmillBoard", "sawmillWood", "hayfieldStraw", "quarryStone", "quarryCoal", "orchardApple", "orchardOrange", "orchardLemon", "vineyardGrapes", "steelworksSteel", "steelworksSteelWire", "farmSize", "perks", "goldPerks", "ignoredQuests"]);
+
+	let ignoredQuests = new Set(db.ignoredQuests || []);
 
 	return {
 		inventory: arrayToUint16(db.inventory as number[]),
@@ -16,6 +18,7 @@ export async function getSearchState(): Promise<SearchState> {
 					let info = await getQuestInfo(quest.name);
 					return {
 						quest: info,
+						ignored: ignoredQuests.has(quest.name),
 					};
 				})),
 		completedObjectives: [],

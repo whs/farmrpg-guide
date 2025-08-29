@@ -1,8 +1,14 @@
-import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Provider, SearchState, STEAK_ID, STEAK_KABOB_ID} from "./types.ts";
+import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Action, SearchState, STEAK_ID, STEAK_KABOB_ID} from "./types.ts";
 import {getItemInfo, getLocationInfo, isExplorable, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
-import {BuyItemStore, BuySteak, BuySteakKabob, CraftItem, ExploreArea, FarmPlant, FeedMill, FlourMill, ManualFishing, NetFishing, SubmitQuest, WaitFor10Min, WaitForHourly, WaitForReset} from "./provider.ts";
 import {castDraft, produce} from "immer";
 import { delay, invariant } from "es-toolkit";
+import {BuyItemStore, SubmitQuest} from "./actions/ui.ts";
+import {FarmPlant} from "./actions/farming.ts";
+import {ExploreArea} from "./actions/exploring.ts";
+import {ManualFishing, NetFishing} from "./actions/fishing.ts";
+import {CraftItem} from "./actions/crafting.ts";
+import {FeedMill, FlourMill, WaitFor10Min, WaitForHourly, WaitForReset} from "./actions/passive.ts";
+import {BuySteak, BuySteakKabob} from "./ui.ts";
 
 export const actionsSearched = {actions: 0};
 
@@ -15,7 +21,7 @@ export function arrayToUint16(inventory: number[]){
 }
 
 export interface NextState {
-	readonly actions: readonly Provider[],
+	readonly actions: readonly Action[],
 	readonly state: SearchState,
 	readonly timeTaken: number,
 }
@@ -30,7 +36,7 @@ export function greedySearchState(state: SearchState, emit: (_: NextState) => vo
 
 async function _greedySearchState(state: NextState, emit: (_: NextState) => void): Promise<NextState> {
 	let possibleFutures: NextState[] = (await Promise.all(state.state.objectives.map(async (objective) => {
-		if(!objective.quest){
+		if(objective.ignored || !objective.quest){
 			return null;
 		}
 		// console.log(`Computing for objective ${objective.quest.name}`);
@@ -70,7 +76,7 @@ async function _greedySearchState(state: NextState, emit: (_: NextState) => void
 
 async function tryToCompleteObjective(state: NextState, objective: Objective): Promise<NextState> {
 	// TODO: Probably better ideas
-	let strategies: Provider[] = [
+	let strategies: Action[] = [
 		new SubmitQuest(objective.quest!!, state.state),
 		new WaitForReset(state.state),
 		new WaitForHourly(state.state),
@@ -137,8 +143,8 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	return tryToCompleteObjective(bestStrategy!!, objective);
 }
 
-async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): Promise<Provider[]>{
-	let out: Provider[] = [];
+async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): Promise<Action[]>{
+	let out: Action[] = [];
 	let itemsNeeded = amount - state.state.inventory[item.id];
 
 	if(itemsNeeded <= 0) {
@@ -238,7 +244,7 @@ async function getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo, 
 }
 
 async function _getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo, amount: number): Promise<number> {
-	invariant(isNaN(amount), `NaN is not supported (asking for item ${item.name})`)
+	invariant(!isNaN(amount), `NaN is not supported (asking for item ${item.name})`)
 	if(amount <= 0 || inventory[item.id] >= amount) {
 		// We have enough items
 		return 1;

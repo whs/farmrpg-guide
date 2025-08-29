@@ -24,6 +24,7 @@
   "dependencies": {
     "es-toolkit": "^1.39.10",
     "immer": "^10.1.1",
+    "material-symbols": "^0.34.1",
     "preact": "^10.27.0"
   }
 }

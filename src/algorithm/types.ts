@@ -4,6 +4,7 @@ export const MAX_ITEMS = 2000;
 
 export interface Objective {
 	readonly quest?: QuestInfo
+	readonly ignored: boolean
 }
 
 export interface SearchState {
@@ -54,7 +55,7 @@ export interface Skills {
 	mining?: number,
 }
 
-export interface Provider {
+export interface Action {
 	getTimeRequired(): number,
 	nextState(): Promise<SearchState>,
 	toString(): string,
