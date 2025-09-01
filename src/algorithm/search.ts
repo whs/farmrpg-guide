@@ -306,6 +306,7 @@ async function _getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo,
 	let chestSaved = 0;
 	for (let chest of item.locksmithOutputItems) {
 		let averageRoll = (chest.quantityMin!! + chest.quantityMax!!) / 2;
+		// TODO: Grab bag handling
 		// Items in chest count as 80% of real item
 		let rollsSaved = (Math.min(averageRoll * inventory[chest.item.id], itemsLeft) / itemsLeft) * 0.8;
 		// TODO: Key - this function is not async so we don't have chest key info

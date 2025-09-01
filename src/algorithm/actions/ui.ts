@@ -139,6 +139,10 @@ export class OpenChest implements Action {
 
 			for(let item of this.chest.locksmithItems) {
 				let averageRoll = (item.quantityMax!! + item.quantityMin!!) / 2;
+				if (this.chest.locksmithGrabBag) {
+					// Grab bags only drop 1 of the items
+					averageRoll /= this.chest.locksmithItems.length;
+				}
 				increaseInventoryItem(draft.inventory, item.outputItem.id, Math.floor(this.amount * averageRoll), this.#lastState.playerInfo.maxInventory);
 			}
 		})
