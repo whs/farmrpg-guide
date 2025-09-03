@@ -54,7 +54,7 @@ async function _greedySearchState(state: NextState, emit: (_: NextState) => void
 
 	let futureScore = async (future: NextState) => {
 		// TODO: Take non-quest objective into goals as well
-		const questCompletion = await getAverageQuestCompletion(future.state);
+		const questCompletion = await getAverageObjectiveCompletion(future.state);
 		const timeTaken = future.timeTaken - state.timeTaken;
 		return Math.pow(questCompletion, 1.2) / Math.log(timeTaken + 1);
 	};
@@ -393,13 +393,17 @@ async function _getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo,
 	return baseCompletion + (itemsLeft / amount) * remainingCompletion;
 }
 
-async function getAverageQuestCompletion(state: SearchState): Promise<number> {
+async function getAverageObjectiveCompletion(state: SearchState): Promise<number> {
 	let totalQuest = state.completedObjectives.length;
 	let completion = state.completedObjectives.length;
-	for(let quest of state.objectives) {
+	for(let objective of state.objectives) {
 		totalQuest += 1;
-		if(quest.quest) {
-			completion += await getQuestCompletionPercent(state.inventory, quest.quest);
+		if(objective.quest) {
+			completion += await getQuestCompletionPercent(state.inventory, objective.quest);
+		} else if (objective.item && objective.item.info) {
+			completion += await getItemCompletionPercent(state.inventory, objective.item.info, objective.item.amount);
+		} else {
+			totalQuest -= 1;
 		}
 	}
 
