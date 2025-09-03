@@ -36,7 +36,7 @@ export function greedySearchState(state: SearchState, emit: (_: NextState) => vo
 
 async function _greedySearchState(state: NextState, emit: (_: NextState) => void): Promise<NextState> {
 	let possibleFutures: NextState[] = (await Promise.all(state.state.objectives.map(async (objective) => {
-		if(objective.ignored || !objective.quest){
+		if(objective.ignored){
 			return null;
 		}
 		// console.log(`Computing for objective ${objective.quest.name}`);
@@ -53,6 +53,7 @@ async function _greedySearchState(state: NextState, emit: (_: NextState) => void
 	}
 
 	let futureScore = async (future: NextState) => {
+		// TODO: Take non-quest objective into goals as well
 		const questCompletion = await getAverageQuestCompletion(future.state);
 		const timeTaken = future.timeTaken - state.timeTaken;
 		return Math.pow(questCompletion, 1.2) / Math.log(timeTaken + 1);
@@ -77,7 +78,6 @@ async function _greedySearchState(state: NextState, emit: (_: NextState) => void
 async function tryToCompleteObjective(state: NextState, objective: Objective): Promise<NextState> {
 	// TODO: Probably better ideas
 	let strategies: Action[] = [
-		new SubmitQuest(objective.quest!!, state.state),
 		new WaitFor(state.state, 10),
 		new WaitFor(state.state, 60),
 	];
@@ -86,12 +86,21 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		strategies.push(new WaitForReset(state.state));
 	}
 
-	strategies.push(...(await Promise.all(objective.quest!!.requiredItems.map(async (requiredItem) => {
-		let itemInfo = await getItemInfo(requiredItem.item.name);
-		return await tryToGetItem(state, itemInfo, requiredItem.quantity);
-	}))).flat());
+	let completionScoreFunc: (state: NextState) => Promise<number> = () => Promise.resolve(0);
 
-	let currentCompletionPercent = await getQuestCompletionPercent(state.state.inventory, objective.quest!!);
+	if(objective.quest) {
+		completionScoreFunc = (state: NextState) => getQuestCompletionPercent(state.state.inventory, objective.quest!!);
+
+		strategies.push(new SubmitQuest(objective.quest, state.state));
+		strategies.push(...(await Promise.all(objective.quest.requiredItems.map(async (requiredItem) => {
+			let itemInfo = await getItemInfo(requiredItem.item.name);
+			return await tryToGetItem(state, itemInfo, requiredItem.quantity);
+		}))).flat());
+	}else if(objective.item && objective.item.info){
+		completionScoreFunc = (state: NextState) => getItemCompletionPercent(state.state.inventory, objective.item!.info!, objective.item!.amount);
+		
+		strategies.push(...(await tryToGetItem(state, objective.item.info, objective.item.amount)));
+	}
 
 	let viableStrategies: NextState[] = (await Promise.all(strategies.map(async (strategy) => {
 		try{
@@ -129,6 +138,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		return state;
 	}
 
+	let currentCompletionPercent = await completionScoreFunc(state);
 	let bestStrategy = viableStrategies[0];
 	let bestCompletionScore = 0;
 
@@ -139,7 +149,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 			return strategy;
 		}
 
-		let completionPercent = await getQuestCompletionPercent(strategy.state.inventory, objective.quest!!);
+		let completionPercent = await completionScoreFunc(strategy);
 		// console.log("Strategy", strategy.actions[strategy.actions.length-1].toString(), "completion percent", completionPercent);
 
 		// Score = (newCompletion - oldCompletion)/timeTaken (completion % per ms)
@@ -152,7 +162,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	}
 
 	// If the best strategy doesn't move currentCompletionPercent, return input state
-	if (await getQuestCompletionPercent(bestStrategy.state.inventory, objective.quest!!) <= currentCompletionPercent) {
+	if (await completionScoreFunc(bestStrategy) <= currentCompletionPercent) {
 		console.log(objective.quest?.name, "best strategy doesn't move the goal", bestCompletionScore, currentCompletionPercent, bestStrategy.actions[bestStrategy.actions.length-1].toString())
 		return state;
 	}
@@ -222,7 +232,11 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 		}
 		if(method.dropRates.location?.type === "fishing") {
 			let locationInfo = await getLocationInfo(method.dropRates.location.name);
-			out.push(new NetFishing(locationInfo, item, itemsNeeded, state.state));
+			try{
+				out.push(new NetFishing(locationInfo, item, itemsNeeded, state.state));
+			}catch(e){
+				// Ignore error if it's hand fishing only
+			}
 			out.push(new ManualFishing(locationInfo, item, itemsNeeded, state.state));
 		}
 	}

@@ -17,6 +17,7 @@
     "@types/chrome": "^0.1.4",
     "@types/node": "^24.3.0",
     "tailwindcss": "^4.1.12",
+    "ts-essentials": "^10.1.1",
     "typescript": "~5.9.2",
     "vite": "^7.1.2",
     "vite-plugin-zip-pack": "^1.2.4"

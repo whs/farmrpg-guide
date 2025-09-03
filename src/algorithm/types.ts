@@ -1,9 +1,16 @@
-import {QuestInfo} from "../data/buddyfarm.ts";
+import {ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
 
 export const MAX_ITEMS = 2000;
 
+export interface ItemObjective {
+	readonly name: string,
+	readonly info?: ItemInfo,
+	readonly amount: number,
+}
+
 export interface Objective {
 	readonly quest?: QuestInfo
+	readonly item?: ItemObjective
 	readonly ignored: boolean
 }
 

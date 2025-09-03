@@ -7,6 +7,7 @@ import PlayerInfo from "./PlayerInfo";
 import { actionsSearched } from "../../algorithm/search";
 import { SearchState } from "../../algorithm/types.ts";
 import ActionDisplay from "./ActionDisplay.tsx";
+import CustomGoal from "./CustomGoal.tsx";
 
 interface State {
 	state: NextState[]|null,
@@ -84,7 +85,7 @@ export default class MainApp extends Component<{}, State> {
 
 	onStorageChanged = debounce((changes: { [key: string]: any }) => {
 		// TODO: Abort signal
-		if(!("inventory" in changes) && !("quests" in changes)) {
+		if(!Object.keys(changes).some((key) => ["inventory", "quests", "ignoredQuests", "customGoals"].includes(key))) {
 			return;
 		}
 		this.searchPromise = this.search();
@@ -114,7 +115,28 @@ export default class MainApp extends Component<{}, State> {
 		}
 	}
 
+	onAddItemGoal = async (itemName: string, amount: number) => {
+		let goals = (await chrome.storage.local.get("customGoals")).customGoals || {};
+		if(!goals.items){
+			goals.items = {};
+		}
+		goals.items[itemName] = amount;
+		
+		await chrome.storage.local.set({ customGoals: goals });
+	}
+
+	onRemoveItemGoal = async (itemName: string) => {
+		let goals = (await chrome.storage.local.get("customGoals")).customGoals || {};
+		if(!goals.items){
+			return;
+		}
+		delete goals.items[itemName];
+		
+		await chrome.storage.local.set({ customGoals: goals });
+	}
+
 	render() {
+		let hasResult = this.state.state && this.state.state.length > 0;
 		return (
 			<>
 				<header class="bg-white p-2 border-b-1 border-b-slate-100 flex justify-between">
@@ -122,9 +144,10 @@ export default class MainApp extends Component<{}, State> {
 					<div class="font-xs cursor-pointer" onClick={this.onGetInitialState} tabindex={1}>{actionsSearched.actions} actions searched</div>
 				</header>
 				{this.state.error && <div class="bg-red-200 m-2 rounded-md border-1 border-red-500 p-2">{this.state.error}</div>}
-				{this.state.state && this.state.state.length > 0 && <ActionDisplay actions={this.state.state[this.state.state.length-1].actions} />}
-				<Result state={this.state.state} finish={this.state.finish} onAddIgnoreQuest={this.onAddIgnoredQuest} onRemoveIgnoreQuest={this.onRemoveIgnoreQuest} />
-				{this.state.state && this.state.state.length > 0 && <PlayerInfo state={this.state.state[this.state.state.length-1].state} />}
+				{hasResult && <ActionDisplay actions={this.state.state![this.state.state!.length-1].actions} />}
+				<Result state={this.state.state} finish={this.state.finish} onAddIgnoreQuest={this.onAddIgnoredQuest} onRemoveIgnoreQuest={this.onRemoveIgnoreQuest} onRemoveItemGoal={this.onRemoveItemGoal} />
+				{hasResult && <CustomGoal onAddItemGoal={this.onAddItemGoal} />}
+				{hasResult && <PlayerInfo state={this.state.state![this.state.state!.length-1].state} />}
 			</>
 		)
 	}

@@ -4,12 +4,14 @@ import {Objective, Action} from "../../algorithm/types.ts";
 import { formatDuration } from "../utils.ts";
 import Loader from "./Loader.tsx";
 import { ActionRenderer } from "./actions.tsx";
+import Item from "./Item.tsx";
 
 interface Props {
 	state: NextState[]|null,
 	finish: boolean
 	onAddIgnoreQuest: (name: string) => void,
 	onRemoveIgnoreQuest: (name: string) => void,
+	onRemoveItemGoal: (name: string) => void,
 }
 
 export default class Result extends Component<Props, any> {
@@ -24,7 +26,6 @@ export default class Result extends Component<Props, any> {
 		let lastState = this.props.state[this.props.state.length-1];
 		let lastTimeTaken = 0;
 		let lastCompletedQuestName: string|undefined = undefined;
-		let ignoredQuests = new Set(lastState.state.objectives.filter((item) => item.ignored).map((item) => item.quest!!.name));
 		return (
 			<div>
 				{this.props.state.map((state, index) => {
@@ -61,25 +62,42 @@ export default class Result extends Component<Props, any> {
 				{this.props.finish ? null : <div class="flex justify-center items-center" style={{height: "100px"}}><Loader /></div>}
 				{lastState.state.objectives.length > 0 ? (
 					<div class="bg-red-200 m-2 rounded-md border-1 border-red-500 p-2">
-						<strong class="text-red-700 text-base mb-2">Quest remaining ({lastState.state.objectives.length})</strong>
+						<strong class="text-red-700 text-base mb-2">Objectives remaining ({lastState.state.objectives.length})</strong>
 						<ol class="list-decimal pl-6 leading-6">
-							{lastState.state.objectives.map((i) => (
-								<li key={i.quest?.name}>
-									<div class="flex justify-between">
-										<div>{i.quest?.name}</div>
-										{ignoredQuests.has(i.quest?.name!!) ? (
-											<button title="Unignore" class="p-1 rounded-md text-slate-700 text-xs cursor-pointer hover:bg-red-100" onClick={() => this.props.onRemoveIgnoreQuest(i.quest?.name!!)}><span class="material-symbols-rounded text-xs!">visibility</span></button>
-										) : (
-											<button title="Ignore" class="p-1 rounded-md text-red-700 text-xs cursor-pointer hover:bg-red-100" onClick={() => this.props.onAddIgnoreQuest(i.quest?.name!!)}><span class="material-symbols-rounded text-xs!">visibility_off</span></button>
-										)}
-									</div>
-								</li>
-							))}
+							{lastState.state.objectives.map((objective) => this.renderRemainingObjective(objective))}
 						</ol>
 					</div>
 				) : null}
 			</div>
 		)
+	}
+
+	renderRemainingObjective(objective: Objective) {
+		if(objective.quest) {
+			return (
+				<li key={`quest ${objective.quest.name}`}>
+					<div class="flex justify-between">
+						<div>{objective.quest.name}</div>
+						{objective.ignored ? (
+							<button title="Unignore" class="p-1 rounded-md text-slate-700 text-xs cursor-pointer hover:bg-red-100" onClick={() => this.props.onRemoveIgnoreQuest(objective.quest!.name)}><span class="material-symbols-rounded text-xs!">visibility</span></button>
+						) : (
+							<button title="Ignore" class="p-1 rounded-md text-red-700 text-xs cursor-pointer hover:bg-red-100" onClick={() => this.props.onAddIgnoreQuest(objective.quest!.name)}><span class="material-symbols-rounded text-xs!">visibility_off</span></button>
+						)}
+					</div>
+				</li>
+			);
+		} else if(objective.item) {
+			return (
+				<li key={`item ${objective.item.name}`}>
+					<div class="flex justify-between">
+						<div>{objective.item.info ? <Item item={objective.item.info} /> : objective.item.name} ×{objective.item.amount}</div>
+						<button title="Remove" class="p-1 rounded-md text-red-700 text-xs cursor-pointer hover:bg-red-100" onClick={() => this.props.onRemoveItemGoal(objective.item!.name)}><span class="material-symbols-rounded text-xs!">remove</span></button>
+					</div>
+				</li>
+			);
+		}else{
+			return <li>Unknown objective type</li>;
+		}
 	}
 
 	formatActions(actions: Action[]) {

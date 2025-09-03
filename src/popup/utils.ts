@@ -1,26 +1,53 @@
+import type {Buildable} from "ts-essentials";
 import { arrayToUint16 } from "../algorithm/search";
-import { SearchState } from "../algorithm/types";
-import { getQuestInfo } from "../data/buddyfarm";
+import { Objective, SearchState } from "../algorithm/types";
+import { getQuestInfo, getItemInfo } from "../data/buddyfarm";
 import { Quest, QuestType } from "../types";
 
 export async function getSearchState(): Promise<SearchState> {
-	let db = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills", "coopEggs", "coopFeathers", "pastureMilk", "sawmillBoard", "sawmillWood", "hayfieldStraw", "quarryStone", "quarryCoal", "orchardApple", "orchardOrange", "orchardLemon", "vineyardGrapes", "steelworksSteel", "steelworksSteelWire", "farmSize", "perks", "goldPerks", "ignoredQuests"]);
+	let db = await chrome.storage.local.get(["quests", "inventory", "maxInventorySize", "silver", "skills", "coopEggs", "coopFeathers", "pastureMilk", "sawmillBoard", "sawmillWood", "hayfieldStraw", "quarryStone", "quarryCoal", "orchardApple", "orchardOrange", "orchardLemon", "vineyardGrapes", "steelworksSteel", "steelworksSteelWire", "farmSize", "perks", "goldPerks", "ignoredQuests", "customGoals"]);
 
 	let ignoredQuests = new Set(db.ignoredQuests || []);
+
+	// Process quest objectives
+	let questObjectivesPromise = Promise.all(
+		(db.quests as Quest[])
+			.filter(quest => [QuestType.Normal, QuestType.Special].includes(quest.type))
+			.map(async (quest) => {
+				let info = await getQuestInfo(quest.name);
+				return {
+					quest: info,
+					ignored: ignoredQuests.has(quest.name),
+				} as Objective;
+			})
+	);
+
+	// Process item objectives
+	let itemObjectivesPromise = Promise.all(
+		Object.entries(db.customGoals?.items || {})
+			.map(async ([itemName, amount]) => {
+				let out: Buildable<Objective> = {
+					item: {
+						name: itemName,
+						amount: amount as number,
+					},
+					ignored: false,
+				};
+				try {
+					out.item!.info = await getItemInfo(itemName);
+				} catch (e) {
+				}
+				return out as Objective;
+			})
+	);
+
+	// Combine both objectives in parallel
+	let results = await Promise.all([questObjectivesPromise, itemObjectivesPromise]);
 
 	return {
 		inventory: arrayToUint16(db.inventory as number[]),
 		silver: db.silver,
-		objectives: await Promise.all(
-			(db.quests as Quest[])
-				.filter(quest => [QuestType.Normal, QuestType.Special].includes(quest.type))
-				.map(async (quest) => {
-					let info = await getQuestInfo(quest.name);
-					return {
-						quest: info,
-						ignored: ignoredQuests.has(quest.name),
-					};
-				})),
+		objectives: results.flat(),
 		completedObjectives: [],
 
 		playerInfo: {
