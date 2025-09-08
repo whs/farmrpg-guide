@@ -365,7 +365,12 @@ async function _getItemCompletionPercent(inventory: Uint16Array, item: ItemInfo,
 		let hasAppleCider = await getItemCompletionIfNotBanned("Apple Cider", Math.floor(expectedExploreCount/1010));
 		let hasOJ = await getItemCompletionIfNotBanned("Orange Juice", Math.floor(expectedExploreCount/100));
 		// Apple is an end product so we never need need to recurse
-		let hasApple = Math.min(1, inventory[APPLE_ID] /  Math.floor(expectedExploreCount/10)); 
+		let hasApple = Math.min(0, inventory[APPLE_ID] / Math.floor(expectedExploreCount/10));
+		if(isNaN(hasApple)){
+			// hasApple can be division by zero if expectedExploreCount < 10
+			hasApple = 0;
+		}
+		
 		let usableAppleCider = (hasAppleCider*1010) / ((hasOJ * 100) + (hasApple * 10));
 		expectedExploreCount -= usableAppleCider * 1010;
 		expectedExploreCount = Math.max(0, expectedExploreCount);
