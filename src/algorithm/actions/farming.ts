@@ -46,34 +46,41 @@ export class FarmPlant implements Action {
 	private getFarmingTimeReduction(): number {
 		let perks = this.#lastState.playerInfo.perks;
 		let goldPerks = this.#lastState.playerInfo.goldPerks;
-		let booster = 0;
+		
+		// Calculate the total for general, non-specific boosters
+		let generalBooster = 0;
 		if (perks.includes("Quicker Farming I")) {
-			booster += 0.05;
+			generalBooster += 0.05;
 		}
 		if (perks.includes("Quicker Farming II")) {
-			booster += 0.10;
+			generalBooster += 0.10;
 		}
 		if (perks.includes("Quicker Farming III")) {
-			booster += 0.15;
+			generalBooster += 0.15;
 		}
 		if (perks.includes("Quicker Farming IV")) {
-			booster += 0.20;
+			generalBooster += 0.20;
 		}
 		if (goldPerks.includes("Irrigation System I")) {
-			booster += 0.1;
+			generalBooster += 0.1;
 		}
 		if (goldPerks.includes("Irrigation System II")) {
-			booster += 0.2;
+			generalBooster += 0.2;
 		}
+
+		// Calculate the total for crop-specific boosters
+		let cropSpecificBooster = 0;
 		if (this.output.name === "Corn") {
 			if (perks.includes("Quicker Corn I")) {
-				booster += 0.1;
+				cropSpecificBooster += 0.1;
 			}
 			if (perks.includes("Quicker Corn II")) {
-				booster += 0.1;
+				cropSpecificBooster += 0.1;
 			}
 		}
-		return booster;
+
+		// Apply the two booster categories multiplicatively
+		return (1 - generalBooster) * (1 - cropSpecificBooster);
 	}
 
 	private getBatchesNeeded() {

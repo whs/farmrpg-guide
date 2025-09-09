@@ -67,6 +67,7 @@ The tool look at your objective lists (usually the quests list, but you can also
 
 - If you have quests with weird names (like newlines in quest name) it will not work
 - Full silver display is required
+- It is eager to use exploration items, which is intended. This is because I could not associate the future value of those items.
 
 ## Development
 
