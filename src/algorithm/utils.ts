@@ -1,5 +1,6 @@
-import {enableMapSet, WritableDraft} from "immer";
+import {enableMapSet, original, WritableDraft} from "immer";
 import {GameplayError, SearchState} from "./types";
+import { invariant } from "es-toolkit";
 
 enableMapSet()
 
@@ -22,6 +23,30 @@ export function getTimeUntilNextReset(): number {
 
 
 export const MENUING_TIME = 30000;
+
+export function increaseInventoryItemV2(state: WritableDraft<SearchState>, itemId: number, amount: number){
+	invariant(!!itemId, "missing itemId");
+
+	if(state.inventory === original(state.inventory)) {
+		state.inventory = state.inventory.slice();
+		// TODO: Remove this
+		invariant(state.inventory !== original(state.inventory), "bug: cloned inventory still equal to original");
+	}
+
+	let newValue = state.inventory[itemId] + amount;
+	if (newValue < 0){
+		throw new GameplayError(`attempting to add item ${itemId} by ${amount} but only have ${state.inventory[itemId]}`)
+	}
+	
+	let sink = 0;
+	if(newValue > state.playerInfo.maxInventory){
+		sink = newValue - state.playerInfo.maxInventory;
+		newValue = state.playerInfo.maxInventory;
+	}
+	state.inventorySink.set(itemId, (state.inventorySink.get(itemId) || 0) + sink);
+	
+	state.inventory[itemId] = newValue;
+}
 
 export function increaseInventoryItem(inventory: WritableDraft<Uint16Array>, itemId: number, amount: number, maxInventory: number){
 	if(!itemId){
