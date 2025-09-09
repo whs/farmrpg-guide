@@ -1,14 +1,15 @@
-import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Action, SearchState, STEAK_ID, STEAK_KABOB_ID} from "./types.ts";
-import {getItemInfo, getLocationInfo, isExplorable, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
+import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Action, SearchState, STEAK_ID, STEAK_KABOB_ID, AmountTargetMode} from "./types.ts";
+import {getItemInfo, getItemName, getLocationInfo, isExplorable, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {castDraft, produce} from "immer";
 import { delay, invariant } from "es-toolkit";
-import {BuyItemStore, OpenChest, SubmitQuest} from "./actions/ui.ts";
+import {BuyItemStore, GiveToNPC, OpenChest, SellItem, SubmitQuest} from "./actions/ui.ts";
 import {FarmPlant} from "./actions/farming.ts";
 import {ExploreArea} from "./actions/exploring.ts";
 import {ManualFishing, NetFishing} from "./actions/fishing.ts";
 import {CraftItem} from "./actions/crafting.ts";
 import {FeedMill, FlourMill, WaitFor, WaitForReset} from "./actions/passive.ts";
 import {BuySteak, BuySteakKabob} from "./ui.ts";
+import { diffItemMap } from "./utils.ts";
 
 export const actionsSearched = {actions: 0};
 
@@ -69,7 +70,35 @@ async function _greedySearchState(state: NextState, emit: (_: NextState) => void
 		}
 	}
 
+	// Now we have the best strategy
+
 	emit(bestFuture);
+
+	// Minimize item voids, by sinking them first
+	let voidItems = diffItemMap(state.state.inventoryVoid, bestFuture.state.inventoryVoid);
+	for(let [itemId, voidAmount] of voidItems.entries()){
+		let itemName = await Promise.race([getItemName(itemId), delay(10)]);
+		if(!itemName){
+			continue;
+		}
+		let sunkenFuture = await tryToCompleteObjective(bestFuture, {
+			item: {
+				name: itemName,
+				info: await getItemInfo(itemName),
+				amount: Math.max(0, state.state.inventory[itemId] - voidAmount),
+				mode: AmountTargetMode.EXACT,
+			},
+			ignored: false,
+		});
+		if(sunkenFuture === bestFuture){
+			continue;
+		}
+		bestFuture = sunkenFuture;
+		console.log("emitting sink strategy", sunkenFuture.actions[sunkenFuture.actions.length-1].toString());
+		emit(bestFuture);
+	}
+	// TODO: We should sink BEFORE void not after...
+
 	await delay(10);
 
 	return _greedySearchState(bestFuture, emit);
@@ -86,7 +115,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		strategies.push(new WaitForReset(state.state));
 	}
 
-	let completionScoreFunc: (state: NextState) => Promise<number> = () => Promise.resolve(0);
+	let completionScoreFunc: (state: NextState) => Promise<number> = () => {invariant(false, "set completionScoreFunc")};
 
 	if(objective.quest) {
 		completionScoreFunc = (state: NextState) => getQuestCompletionPercent(state.state.inventory, objective.quest!!);
@@ -94,12 +123,30 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		strategies.push(new SubmitQuest(objective.quest, state.state));
 		strategies.push(...(await Promise.all(objective.quest.requiredItems.map(async (requiredItem) => {
 			let itemInfo = await getItemInfo(requiredItem.item.name);
-			return await tryToGetItem(state, itemInfo, requiredItem.quantity);
+			return await howToGetItem(state, itemInfo, requiredItem.quantity);
 		}))).flat());
 	}else if(objective.item && objective.item.info){
-		completionScoreFunc = (state: NextState) => getItemCompletionPercent(state.state.inventory, objective.item!.info!, objective.item!.amount);
-		
-		strategies.push(...(await tryToGetItem(state, objective.item.info, objective.item.amount)));
+		let itemId = objective.item.info.id;
+		let itemsNeeded = Math.min(objective.item.amount, state.state.playerInfo.maxInventory) - state.state.inventory[itemId];
+
+		if(itemsNeeded === 0){
+			// Objective completed!
+			return state;
+		}else if(objective.item.mode === AmountTargetMode.EXACT && itemsNeeded < 0) {
+			// We have too many items, sink
+			let lastAverageRequestCompletion = await getAverageObjectiveCompletion(state.state);
+			completionScoreFunc = (nextState: NextState) => getItemSinkScore(state, nextState, objective, lastAverageRequestCompletion);
+			
+			strategies.push(...(await howToSinkItem(state, objective.item.info, objective.item.amount)));
+		}else if(itemsNeeded < 0) {
+			// We have more than requested, objective completed!
+			return state;
+		}else{
+			// Find more items
+			completionScoreFunc = (state: NextState) => getItemCompletionPercent(state.state.inventory, objective.item!.info!, objective.item!.amount);
+			
+			strategies.push(...(await howToGetItem(state, objective.item.info, objective.item.amount)));
+		}
 	}
 
 	let viableStrategies: NextState[] = (await Promise.all(strategies.map(async (strategy) => {
@@ -139,11 +186,11 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	}
 
 	let currentCompletionPercent = await completionScoreFunc(state);
-	let bestStrategy = viableStrategies[0];
+	let bestStrategy = null;
 	let bestCompletionScore = 0;
 
 	for (let strategy of viableStrategies) {
-		let objectiveStillExists = strategy.state.objectives.some(obj => obj.quest?.name === objective.quest?.name);
+		let objectiveStillExists = !objective.quest || strategy.state.objectives.some(obj => obj.quest?.name === objective.quest?.name);
 		// If objective is eliminated, this is the best strategy
 		if (!objectiveStillExists) {
 			return strategy;
@@ -161,6 +208,8 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		}
 	}
 
+	invariant(bestStrategy !== null, "bestStrategy is set");
+
 	// If the best strategy doesn't move currentCompletionPercent, return input state
 	if (await completionScoreFunc(bestStrategy) <= currentCompletionPercent) {
 		console.log(objective.quest?.name, "best strategy doesn't move the goal", bestCompletionScore, currentCompletionPercent, bestStrategy.actions[bestStrategy.actions.length-1].toString())
@@ -173,7 +222,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	return tryToCompleteObjective(bestStrategy!!, objective);
 }
 
-async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): Promise<Action[]>{
+async function howToGetItem(state: NextState, item: ItemInfo, amount: number): Promise<Action[]>{
 	let out: Action[] = [];
 	let itemsNeeded = amount - state.state.inventory[item.id];
 
@@ -197,12 +246,12 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 
 	if(item.id === FLOUR_ID) {
 		out.push(new FlourMill(itemsNeeded, state.state));
-		out.push(...await tryToGetItem(state, await getItemInfo("Wheat"), Math.ceil(itemsNeeded/14.4)));
+		out.push(...await howToGetItem(state, await getItemInfo("Wheat"), Math.ceil(itemsNeeded/14.4)));
 	} else if (item.id === FEED_ID) {
 		let allFeedInfo = await Promise.all(Object.keys(FeedMill.feedTable).map((itemName) => getItemInfo(itemName)));
 		for(let feed of allFeedInfo) {
 			out.push(new FeedMill(feed, itemsNeeded, state.state));
-			out.push(...await tryToGetItem(state, feed, Math.ceil(itemsNeeded/FeedMill.feedTable[feed.name])));
+			out.push(...await howToGetItem(state, feed, Math.ceil(itemsNeeded/FeedMill.feedTable[feed.name])));
 		}
 	}
 
@@ -210,7 +259,7 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 		out.push(new CraftItem(item, itemsNeeded, state.state));
 		out.push(...(await Promise.all(item.recipeItems.map(async (recipeItem) => {
 			let itemInfo = await getItemInfo(recipeItem.item.name);
-			return await tryToGetItem(state, itemInfo, recipeItem.quantity * itemsNeeded)
+			return await howToGetItem(state, itemInfo, recipeItem.quantity * itemsNeeded)
 		}))).flat());
 	}
 
@@ -219,7 +268,7 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 			// FIXME: Check requirements - Buddyfarm doesn't record these
 			let seedInfo = await getItemInfo(method.dropRates.seed.name);
 			let farmPlant = new FarmPlant(seedInfo, item, itemsNeeded, state.state);
-			out.push(...await tryToGetItem(state, seedInfo, farmPlant.getSeedNeeded()));
+			out.push(...await howToGetItem(state, seedInfo, farmPlant.getSeedNeeded()));
 			out.push(farmPlant);
 		}
 		if(method.dropRates.location?.type === "explore") {
@@ -251,8 +300,34 @@ async function tryToGetItem(state: NextState, item: ItemInfo, amount: number): P
 			
 			// Open chest one by one in case we already have them. It is generally hard to acquire all the chests
 			out.push(new OpenChest(chestInfo, 1, state.state));
-			return await tryToGetItem(state, chestInfo, chestsNeeded);
+			return await howToGetItem(state, chestInfo, chestsNeeded);
 		}))).flat());
+	}
+
+	return out;
+}
+
+async function howToSinkItem(state: NextState, item: ItemInfo, amount: number): Promise<Action[]> {
+	let sinkAmount = state.state.inventory[item.id] - amount;
+	if(sinkAmount <= 0){
+		return [];
+	}
+	
+	let out: Action[] = [
+		new SellItem(item, sinkAmount, state.state),
+	];
+
+	out.push(...(await Promise.all(item.recipeIngredientItems.map(async (recipe) => {
+		let recipeItem = await getItemInfo(recipe.item.name);
+		if(recipe.item.canCraft){
+			return new CraftItem(recipeItem, Math.ceil(sinkAmount / recipe.quantity), state.state);
+		}
+	}))).filter(v => v !== undefined));
+
+	if(item.canMail){
+		for(let npc of item.npcItems){
+			out.push(new GiveToNPC(item, npc.npc.name, sinkAmount, state.state));
+		}
 	}
 
 	return out;
@@ -413,4 +488,24 @@ async function getAverageObjectiveCompletion(state: SearchState): Promise<number
 	}
 
 	return completion / totalQuest;
+}
+
+async function getItemSinkScore(lastState: NextState, state: NextState, objective: Objective, lastAverageRequestCompletion: number): Promise<number>{
+	if (lastState === state) {
+		return 0;
+	}
+
+	let newAverageObjectiveCompletion = await getAverageObjectiveCompletion(state.state);
+	
+	let silverGained = state.state.silver - lastState.state.silver;
+	let questCompletionChanged = newAverageObjectiveCompletion - lastAverageRequestCompletion;
+	
+	let itemsSunk = lastState.state.inventory[objective.item!.info!.id] - state.state.inventory[objective.item!.info!.id]
+	let itemsSunkRequested = lastState.state.inventory[objective.item!.info!.id] - objective.item!.amount;
+	let objectiveProgress = itemsSunk / itemsSunkRequested;
+	
+	let netQuestImpact = questCompletionChanged > 0 ? questCompletionChanged * 100 : questCompletionChanged * 2;
+	let silverUtility = Math.log(silverGained + 1) * 0.1;
+
+	return objectiveProgress + netQuestImpact + silverUtility;
 }

@@ -2,10 +2,22 @@ import {ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
 
 export const MAX_ITEMS = 2000;
 
+export enum AmountTargetMode{
+	/**
+	 * Try to get at least the requested amount (default)
+	 */
+	GREATER,
+	/**
+	 * Try to have that exact amount of items. Accept sinks
+	 */
+	EXACT,
+}
+
 export interface ItemObjective {
 	readonly name: string,
 	readonly info?: ItemInfo,
 	readonly amount: number,
+	readonly mode?: AmountTargetMode,
 }
 
 export interface Objective {

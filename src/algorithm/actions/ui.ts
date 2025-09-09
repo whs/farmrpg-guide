@@ -144,3 +144,96 @@ export class OpenChest implements Action {
 		return null;
 	}
 }
+
+export class SellItem implements Action {
+	item: ItemInfo;
+	amount: number;
+	#lastState: SearchState;
+
+	constructor(item: ItemInfo, amount: number, state: SearchState) {
+		this.item = item;
+		this.amount = amount;
+		this.#lastState = state;
+	}
+
+	getTimeRequired(): number {
+		return MENUING_TIME;
+	}
+
+	async nextState(): Promise<SearchState> {
+		return produce(this.#lastState, (draft) => {
+			increaseInventoryItem(draft, this.item.id, -this.amount);
+			// TODO: Buddyfarm doesn't have item price
+			increaseSilver(draft, this.amount);
+		})
+	}
+
+	toString(): string {
+		return `Sell ${this.item.name} ×${this.amount}`;
+	}
+
+	collapseWith(action: Action): Action | null {
+		if(action instanceof SellItem && action.item.id === this.item.id) {
+			this.amount += action.amount;
+			return this;
+		}
+		return null;
+	}
+}
+
+type NPCItemLike = "loves" | "likes" | "hates";
+
+const NPC_XP_MAP: {[key in NPCItemLike]: number} = {
+	"loves": 150,
+	"likes": 25,
+	"hates": -50,
+};
+
+export class GiveToNPC implements Action {
+	item: ItemInfo;
+	npc: string;
+	amount: number;
+	#npcRelationship: NPCItemLike | "";
+	#lastState: SearchState;
+
+	constructor(item: ItemInfo, npc: string, amount: number, state: SearchState) {
+		this.item = item;
+		this.npc = npc;
+		this.amount = amount;
+
+		this.#npcRelationship = "";
+		for(let npcInfo of item.npcItems){
+			if(npcInfo.npc.name === npc) {
+				this.#npcRelationship = npcInfo.relationship as NPCItemLike;
+			}
+		}
+
+		this.#lastState = state;
+	}
+
+	getTimeRequired(): number {
+		return MENUING_TIME;
+	}
+
+	async nextState(): Promise<SearchState> {
+		return produce(this.#lastState, (draft) => {
+			increaseInventoryItem(draft, this.item.id, -this.amount);
+			// TODO: This use silver as temp. value for NPC relationship
+			if(this.#npcRelationship){
+				increaseSilver(draft, NPC_XP_MAP[this.#npcRelationship] * 20);
+			}
+		})
+	}
+
+	toString(): string {
+		return `Give ${this.item.name} ×${this.amount} to ${this.npc}`;
+	}
+
+	collapseWith(action: Action): Action | null {
+		if(action instanceof GiveToNPC && action.item.id === this.item.id && this.npc === action.npc) {
+			this.amount += action.amount;
+			return this;
+		}
+		return null;
+	}
+}

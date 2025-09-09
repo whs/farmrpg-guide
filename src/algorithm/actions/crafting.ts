@@ -55,6 +55,7 @@ export class CraftItem implements Action {
 		}
 
 		return produce(this.#lastState, (draft) => {
+			// TODO: Silver cost. We currently don't track silver cost because we don't have silver making goal
 			for (let item of this.item.recipeItems) {
 				increaseInventoryItem(draft, item.item.id, -(this.craftTimes * item.quantity));
 			}
