@@ -42,7 +42,9 @@ export function increaseInventoryItem(state: WritableDraft<SearchState>, itemId:
 		sink = newValue - state.playerInfo.maxInventory;
 		newValue = state.playerInfo.maxInventory;
 	}
-	state.inventorySink.set(itemId, (state.inventorySink.get(itemId) || 0) + sink);
+	if(sink > 0){
+		state.inventoryVoid.set(itemId, (state.inventoryVoid.get(itemId) || 0) + sink);
+	}
 	
 	state.inventory[itemId] = newValue;
 }
@@ -53,4 +55,18 @@ export function increaseSilver(state: WritableDraft<SearchState>, amount: number
 	if (state.silver < 0){
 		throw new GameplayError(`attempting to remove silver by ${amount} but only have ${lastSilver}`)
 	}
+}
+
+export function diffItemMap(old: Map<number, number>, latest: Map<number, number>): Map<number, number>{
+	let out = new Map<number, number>();
+	
+	for (let [itemId, latestAmount] of latest.entries()) {
+		const oldAmount = old.get(itemId) || 0;
+		const diff = latestAmount - oldAmount;
+		if (diff > 0) {
+			out.set(itemId, diff);
+		}
+	}
+	
+	return out;
 }

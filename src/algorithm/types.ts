@@ -16,7 +16,7 @@ export interface Objective {
 
 export interface SearchState {
 	readonly inventory: Uint16Array,
-	readonly inventorySink: Map<number, number>,
+	readonly inventoryVoid: Map<number, number>,
 	readonly silver: number,
 	readonly objectives: readonly Objective[],
 	readonly completedObjectives: readonly Objective[],

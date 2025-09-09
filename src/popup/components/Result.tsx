@@ -1,6 +1,7 @@
 import {Component} from "preact";
 import {NextState} from "../../algorithm/search.ts";
 import {Objective, Action} from "../../algorithm/types.ts";
+import { diffItemMap } from "../../algorithm/utils.ts";
 import { formatDuration } from "../utils.ts";
 import Loader from "./Loader.tsx";
 import { ActionRenderer } from "./actions.tsx";
@@ -45,6 +46,8 @@ export default class Result extends Component<Props, any> {
 					}
 					lastCompletedQuestName = questName;
 
+					let voids = index === 0 ? state.state.inventoryVoid : diffItemMap(this.props.state![index-1].state.inventoryVoid, state.state.inventoryVoid);
+
 					return (
 						<div class="bg-white m-3 rounded-md border-1 border-slate-200 p-2 group" key={index}>
 							<div class="flex flex-row items-center font-bold mb-2">
@@ -52,6 +55,16 @@ export default class Result extends Component<Props, any> {
 								<div class="grow text-base">{questName}</div>
 								<div class="text-xs font-medium border-1 border-slate-200 p-1 rounded-md bg-slate-100">{formatDuration(timeTaken)}</div>
 								{questName && <button title="Ignore" class="ml-1 text-xs border-1 border-red-800 p-1 rounded-md hover:bg-red-100 cursor-pointer" onClick={() => this.props.onAddIgnoreQuest(questName)}><span class="material-symbols-rounded text-xs!">visibility_off</span></button>}
+							</div>
+							<div class="mb-2">
+								<ul class="flex gap-1 text-xs flex-wrap">
+									<li class="font-bold">Voids</li>
+									{Array.from(voids.entries()).map(([k, v]) => {
+										return (
+											<li key={k} class="px-1 border-1 rounded-sm border-slate-300"><Item itemId={k} label={false} />&times;{v}</li>
+										);
+									})}
+								</ul>
 							</div>
 							<ol class="list-decimal pl-6 leading-6">
 								{this.formatActions(newActions)}

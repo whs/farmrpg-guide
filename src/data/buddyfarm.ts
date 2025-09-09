@@ -34,6 +34,8 @@ async function cacheFill<T>(
 	return data;
 }
 
+const itemNameCache = new Map<number, string>();
+
 const fetchQuestData = memoize((slug: string): Promise<QuestInfo> => {
 	return cacheFill('quest', slug, async (slug: string) => {
 		const data = await (await fetch(`https://buddy.farm/page-data/q/${slug}/page-data.json`)).json();
@@ -46,11 +48,19 @@ export function getQuestInfo(questNameOrSlug: string): Promise<QuestInfo> {
 	return fetchQuestData(slug);
 }
 
-const fetchItemData = memoize((slug: string): Promise<ItemInfo> => {
-	return cacheFill('item', slug, async (slug: string) => {
+const fetchItemData = memoize(async (slug: string): Promise<ItemInfo> => {
+	let out = await cacheFill('item', slug, async (slug: string) => {
 		const data = await (await fetch(`https://buddy.farm/page-data/i/${slug}/page-data.json`)).json();
 		return data.result.data.farmrpg.items[0] as ItemInfo;
 	});
+
+	itemNameCache.set(out.id, out.name);
+
+	for(let locksmithItem of out.locksmithItems){
+		itemNameCache.set(locksmithItem.outputItem.id, locksmithItem.outputItem.name);
+	}
+
+	return out;
 });
 
 export function getItemInfo(itemNameOrSlug: string): Promise<ItemInfo> {
@@ -58,11 +68,33 @@ export function getItemInfo(itemNameOrSlug: string): Promise<ItemInfo> {
 	return fetchItemData(slug);
 }
 
-const fetchLocationData = memoize((slug: string): Promise<LocationInfo> => {
-	return cacheFill('location', slug, async (slug: string) => {
+/**
+ * Return itemInfo of item by ID. Will never resolve if item has never been read by getItemInfo before calling this function
+ */
+export async function getItemName(itemId: number): Promise<string> {
+	let out = itemNameCache.get(itemId);
+	if(out){
+		return out;
+	}
+	return new Promise(() => {
+		console.warn("Unknown item ID requested", itemId);
+		// TODO: Fetch item info
+	});
+}
+
+const fetchLocationData = memoize(async (slug: string): Promise<LocationInfo> => {
+	let out = await cacheFill('location', slug, async (slug: string) => {
 		const data = await (await fetch(`https://buddy.farm/page-data/l/${slug}/page-data.json`)).json();
 		return data.result.data.farmrpg.locations[0] as LocationInfo;
 	});
+
+	for(let dropRate of out.dropRates){
+		for(let item of dropRate.items){
+			itemNameCache.set(item.item.id, item.item.name);
+		}
+	}
+
+	return out;
 });
 
 export function getLocationInfo(locationNameOrSlug: string): Promise<LocationInfo> {
