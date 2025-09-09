@@ -103,23 +103,12 @@ export class FarmPlant implements Action {
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = this.#lastState.inventory.slice();
 			let batches = this.getBatchesNeeded();
 			let rolls = this.#lastState.playerInfo.farmSize * batches;
-			increaseInventoryItem(
-				draft.inventory,
-				this.seed.id,
-				-this.getSeedNeeded(),
-				this.#lastState.playerInfo.maxInventory
-			);
+			increaseInventoryItem(draft, this.seed.id, -this.getSeedNeeded());
 
 			// Add produce
-			increaseInventoryItem(
-				draft.inventory,
-				this.output.id,
-				this.desired,
-				this.#lastState.playerInfo.maxInventory
-			);
+			increaseInventoryItem(draft, this.output.id, this.desired);
 
 			// Add by products
 			for (let drop of this.seed.dropRates[0].items) {
@@ -127,12 +116,7 @@ export class FarmPlant implements Action {
 					// Ignore produce drop as we have hard coded rule
 					continue;
 				}
-				increaseInventoryItem(
-					draft.inventory,
-					drop.item.id,
-					Math.floor(rolls / drop.rate),
-					this.#lastState.playerInfo.maxInventory
-				);
+				increaseInventoryItem(draft, drop.item.id, Math.floor(rolls / drop.rate));
 			}
 		});
 	}

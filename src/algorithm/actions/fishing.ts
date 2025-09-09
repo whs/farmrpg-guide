@@ -102,15 +102,13 @@ export class ManualFishing implements Action {
 		checkFishingZone(this.area, this.#lastState);
 
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = this.#lastState.inventory.slice();
-
 			let rollsNeeded = this.getAttemptsRequired();
 			let rollCount = 0;
 			let baits = [MEALWORM_ID, GUMMY_WORM_ID, GRUB_ID, MINNOW_ID, WORM_ID];
 
 			for (let bait of baits) {
 				let usedBait = Math.min(rollsNeeded - rollCount, this.#lastState.inventory[bait]);
-				increaseInventoryItem(draft.inventory, bait, -usedBait, this.#lastState.playerInfo.maxInventory);
+				increaseInventoryItem(draft, bait, -usedBait);
 				rollCount += usedBait;
 
 				if (rollCount >= rollsNeeded) {
@@ -120,20 +118,10 @@ export class ManualFishing implements Action {
 
 			if (rollCount >= rollsNeeded) {
 				// Guaranteed drop
-				increaseInventoryItem(
-					draft.inventory,
-					this.item.id,
-					this.amount,
-					this.#lastState.playerInfo.maxInventory,
-				);
+				increaseInventoryItem(draft, this.item.id, this.amount);
 			} else {
 				// Partial drop
-				increaseInventoryItem(
-					draft.inventory,
-					this.item.id,
-					Math.floor(rollCount / this.#dropRate),
-					this.#lastState.playerInfo.maxInventory,
-				);
+				increaseInventoryItem(draft, this.item.id, Math.floor(rollCount / this.#dropRate));
 			}
 
 			// Add by products
@@ -142,12 +130,7 @@ export class ManualFishing implements Action {
 					// Ignore resulting item drop
 					continue;
 				}
-				increaseInventoryItem(
-					draft.inventory,
-					drop.item.id,
-					Math.floor(rollCount / drop.rate),
-					this.#lastState.playerInfo.maxInventory,
-				);
+				increaseInventoryItem(draft, drop.item.id, Math.floor(rollCount / drop.rate));
 			}
 		});
 	}
@@ -220,8 +203,6 @@ export class NetFishing implements Action {
 		checkFishingZone(this.area, this.#lastState);
 
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = this.#lastState.inventory.slice();
-
 			let rollsNeeded = this.getAttemptsRequired();
 			let actualRolls = 0;
 			let rollsPerNet = this.getRollPerNet();
@@ -233,7 +214,7 @@ export class NetFishing implements Action {
 				let largeNetUsed = Math.ceil(rollsNeeded / rollsPerLargeNet);
 				largeNetUsed = Math.min(largeNetUsed, this.#lastState.inventory[LARGE_FISHING_NET_ID]);
 				actualRolls += largeNetUsed * rollsPerLargeNet;
-				draft.inventory[LARGE_FISHING_NET_ID] -= largeNetUsed;
+				increaseInventoryItem(draft, LARGE_FISHING_NET_ID, -largeNetUsed);
 			}
 
 			// Try small net
@@ -241,25 +222,15 @@ export class NetFishing implements Action {
 				let netUsed = Math.ceil(rollsNeeded / rollsPerNet);
 				netUsed = Math.min(netUsed, this.#lastState.inventory[FISHING_NET_ID]);
 				actualRolls += netUsed * rollsPerNet;
-				draft.inventory[FISHING_NET_ID] -= netUsed;
+				increaseInventoryItem(draft, FISHING_NET_ID, -netUsed);
 			}
 
 			if (actualRolls >= rollsNeeded) {
 				// Guaranteed drop
-				increaseInventoryItem(
-					draft.inventory,
-					this.item.id,
-					this.amount,
-					this.#lastState.playerInfo.maxInventory,
-				);
+				increaseInventoryItem(draft, this.item.id, this.amount);
 			} else {
 				// Partial drop
-				increaseInventoryItem(
-					draft.inventory,
-					this.item.id,
-					Math.floor(actualRolls / this.#dropRate),
-					this.#lastState.playerInfo.maxInventory,
-				);
+				increaseInventoryItem(draft, this.item.id, Math.floor(actualRolls / this.#dropRate));
 			}
 
 			// Add by products
@@ -268,12 +239,7 @@ export class NetFishing implements Action {
 					// Ignore resulting item drop
 					continue;
 				}
-				increaseInventoryItem(
-					draft.inventory,
-					drop.item.id,
-					Math.floor(actualRolls / drop.rate),
-					this.#lastState.playerInfo.maxInventory,
-				);
+				increaseInventoryItem(draft, drop.item.id, Math.floor(actualRolls / drop.rate));
 			}
 		});
 	}

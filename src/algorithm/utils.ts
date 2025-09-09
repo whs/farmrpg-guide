@@ -24,13 +24,12 @@ export function getTimeUntilNextReset(): number {
 
 export const MENUING_TIME = 30000;
 
-export function increaseInventoryItemV2(state: WritableDraft<SearchState>, itemId: number, amount: number){
+export function increaseInventoryItem(state: WritableDraft<SearchState>, itemId: number, amount: number){
 	invariant(!!itemId, "missing itemId");
 
-	if(state.inventory === original(state.inventory)) {
+	let origitalState = original(state)!;
+	if(state.inventory === origitalState.inventory) {
 		state.inventory = state.inventory.slice();
-		// TODO: Remove this
-		invariant(state.inventory !== original(state.inventory), "bug: cloned inventory still equal to original");
 	}
 
 	let newValue = state.inventory[itemId] + amount;
@@ -46,17 +45,6 @@ export function increaseInventoryItemV2(state: WritableDraft<SearchState>, itemI
 	state.inventorySink.set(itemId, (state.inventorySink.get(itemId) || 0) + sink);
 	
 	state.inventory[itemId] = newValue;
-}
-
-export function increaseInventoryItem(inventory: WritableDraft<Uint16Array>, itemId: number, amount: number, maxInventory: number){
-	if(!itemId){
-		throw new Error("Missing itemId");
-	}
-	let newValue = Math.min(inventory[itemId] + amount, maxInventory);
-	if (newValue < 0){
-		throw new GameplayError(`attempting to add item ${itemId} by ${amount} but only have ${inventory[itemId]}`)
-	}
-	inventory[itemId] = newValue;
 }
 
 export function increaseSilver(state: WritableDraft<SearchState>, amount: number){

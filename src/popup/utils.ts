@@ -46,6 +46,7 @@ export async function getSearchState(): Promise<SearchState> {
 
 	return {
 		inventory: arrayToUint16(db.inventory as number[]),
+		inventorySink: new Map(),
 		silver: db.silver,
 		objectives: results.flat(),
 		completedObjectives: [],

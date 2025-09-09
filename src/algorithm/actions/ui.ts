@@ -27,27 +27,15 @@ export class SubmitQuest implements Action {
 		})));
 
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = this.#lastState.inventory.slice();
-
 			increaseSilver(draft, -(this.quest.requiredSilver || 0));
 			increaseSilver(draft, this.quest.rewardSilver);
 
 			for (let item of requiredItems) {
-				increaseInventoryItem(
-					draft.inventory,
-					item.info.id,
-					-item.item.quantity,
-					this.#lastState.playerInfo.maxInventory
-				);
+				increaseInventoryItem(draft, item.info.id, -item.item.quantity);
 			}
 
 			for (let item of rewardItems) {
-				increaseInventoryItem(
-					draft.inventory,
-					item.info.id,
-					item.item.quantity,
-					this.#lastState.playerInfo.maxInventory
-				);
+				increaseInventoryItem(draft, item.info.id, item.item.quantity);
 			}
 
 			let index = this.#lastState.objectives.findIndex((q) => q.quest?.name === this.quest.name);
@@ -88,11 +76,9 @@ export class BuyItemStore implements Action {
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = this.#lastState.inventory.slice();
-
 			increaseSilver(draft, -(this.item.buyPrice * this.amount));
 
-			increaseInventoryItem(draft.inventory, this.item.id, this.amount, this.#lastState.playerInfo.maxInventory);
+			increaseInventoryItem(draft, this.item.id, this.amount);
 		})
 	}
 
@@ -130,11 +116,9 @@ export class OpenChest implements Action {
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = this.#lastState.inventory.slice();
-
-			increaseInventoryItem(draft.inventory, this.chest.id, -this.amount, this.#lastState.playerInfo.maxInventory);
+			increaseInventoryItem(draft, this.chest.id, -this.amount);
 			if(this.chest.locksmithKey){
-				increaseInventoryItem(draft.inventory, this.chest.locksmithKey.id, -this.amount, this.#lastState.playerInfo.maxInventory);
+				increaseInventoryItem(draft, this.chest.locksmithKey.id, -this.amount);
 			}
 
 			for(let item of this.chest.locksmithItems) {
@@ -143,7 +127,7 @@ export class OpenChest implements Action {
 					// Grab bags only drop 1 of the items
 					averageRoll /= this.chest.locksmithItems.length;
 				}
-				increaseInventoryItem(draft.inventory, item.outputItem.id, Math.floor(this.amount * averageRoll), this.#lastState.playerInfo.maxInventory);
+				increaseInventoryItem(draft, item.outputItem.id, Math.floor(this.amount * averageRoll));
 			}
 		})
 	}

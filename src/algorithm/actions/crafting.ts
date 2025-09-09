@@ -55,13 +55,11 @@ export class CraftItem implements Action {
 		}
 
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = this.#lastState.inventory.slice();
-
 			for (let item of this.item.recipeItems) {
-				increaseInventoryItem(draft.inventory, item.item.id, -(this.craftTimes * item.quantity), this.#lastState.playerInfo.maxInventory);
+				increaseInventoryItem(draft, item.item.id, -(this.craftTimes * item.quantity));
 			}
 
-			increaseInventoryItem(draft.inventory, this.item.id, this.amount, this.#lastState.playerInfo.maxInventory);
+			increaseInventoryItem(draft, this.item.id, this.amount);
 		});
 	}
 

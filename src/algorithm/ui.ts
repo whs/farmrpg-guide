@@ -19,8 +19,7 @@ export class BuySteak implements Action {
 		return produce(this.#state, (draft) => {
 			// Bill for max price
 			increaseSilver(draft, 75000 * this.amount)
-			draft.inventory = this.#state.inventory.slice();
-			increaseInventoryItem(draft.inventory, STEAK_ID, this.amount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft, STEAK_ID, this.amount);
 		})
 	}
 
@@ -46,8 +45,7 @@ export class BuySteakKabob implements Action {
 		return produce(this.#state, (draft) => {
 			// Bill for max price
 			increaseSilver(draft, 12000 * this.amount)
-			draft.inventory = this.#state.inventory.slice();
-			increaseInventoryItem(draft.inventory, STEAK_KABOB_ID, this.amount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft, STEAK_KABOB_ID, this.amount);
 		})
 	}
 

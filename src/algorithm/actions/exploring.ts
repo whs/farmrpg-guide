@@ -179,7 +179,6 @@ export class ExploreArea implements Action {
 		}
 
 		return produce(this.#lastState, (draft) => {
-			draft.inventory = this.#lastState.inventory.slice();
 			if (this.#consumablesUsed === null) {
 				// The value is computed as side effect of this function
 				this.getTimeRequired();
@@ -188,21 +187,11 @@ export class ExploreArea implements Action {
 
 			// Remove consumed items
 			for (let [item, amount] of this.#consumablesUsed!.entries()) {
-				increaseInventoryItem(
-					draft.inventory,
-					item,
-					-amount,
-					this.#lastState.playerInfo.maxInventory,
-				)
+				increaseInventoryItem(draft, item, -amount);
 			}
 
 			// Add target item
-			increaseInventoryItem(
-				draft.inventory,
-				this.item.id,
-				this.amount,
-				this.#lastState.playerInfo.maxInventory,
-			);
+			increaseInventoryItem(draft, this.item.id, this.amount);
 
 			// Add by products
 			for (let drop of this.area.dropRates[0].items) {
@@ -210,12 +199,7 @@ export class ExploreArea implements Action {
 					// Ignore resulting item drop
 					continue;
 				}
-				increaseInventoryItem(
-					draft.inventory,
-					drop.item.id,
-					Math.floor(attempts / drop.rate),
-					this.#lastState.playerInfo.maxInventory,
-				);
+				increaseInventoryItem(draft, drop.item.id, Math.floor(attempts / drop.rate));
 			}
 		});
 	}

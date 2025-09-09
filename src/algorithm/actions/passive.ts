@@ -51,9 +51,8 @@ export class FlourMill implements Action {
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
-			draft.inventory = this.#state.inventory.slice();
-			increaseInventoryItem(draft.inventory, WHEAT_ID, -Math.ceil(this.#amount / 14.4), this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, FLOUR_ID, this.#amount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft, WHEAT_ID, -Math.ceil(this.#amount / 14.4));
+			increaseInventoryItem(draft, FLOUR_ID, this.#amount);
 		});
 	}
 
@@ -105,11 +104,10 @@ export class FeedMill implements Action {
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
-			draft.inventory = this.#state.inventory.slice();
 			let producePerInput = FeedMill.feedTable[this.#input.name];
 			let inputRequired = Math.ceil(this.#amount / producePerInput);
-			increaseInventoryItem(draft.inventory, this.#input.id, -inputRequired, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, FEED_ID, this.#amount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft, this.#input.id, -inputRequired);
+			increaseInventoryItem(draft, FEED_ID, this.#amount);
 		});
 	}
 
@@ -138,7 +136,6 @@ export class WaitForReset implements Action {
 			throw new GameplayError("Cannot use WaitForReset - use WaitFor")
 		}
 		return produce(this.#state, (draft) => {
-			draft.inventory = this.#state.inventory.slice();
 			WaitForReset._updateDaily(draft, 1);
 		})
 	}
@@ -146,13 +143,13 @@ export class WaitForReset implements Action {
 	static _updateDaily(draft: WritableDraft<SearchState>, count: number) {
 		let state = original(draft)!!;
 		// Trees already include the perk bonuses
-		increaseInventoryItem(draft.inventory, APPLE_ID, state.playerInfo.orchardApple * count, state.playerInfo.maxInventory);
-		increaseInventoryItem(draft.inventory, ORANGE_ID, state.playerInfo.orchardOrange * count, state.playerInfo.maxInventory);
-		increaseInventoryItem(draft.inventory, LEMON_ID, state.playerInfo.orchardLemon * count, state.playerInfo.maxInventory);
-		increaseInventoryItem(draft.inventory, EGGS_ID, state.playerInfo.coopEggs * count, state.playerInfo.maxInventory);
-		increaseInventoryItem(draft.inventory, FEATHERS_ID, state.playerInfo.coopFeathers * count, state.playerInfo.maxInventory);
-		increaseInventoryItem(draft.inventory, MILK_ID, state.playerInfo.pastureMilk * count, state.playerInfo.maxInventory);
-		increaseInventoryItem(draft.inventory, GRAPES_ID, state.playerInfo.vineyardGrapes * count, state.playerInfo.maxInventory);
+		increaseInventoryItem(draft, APPLE_ID, state.playerInfo.orchardApple * count);
+		increaseInventoryItem(draft, ORANGE_ID, state.playerInfo.orchardOrange * count);
+		increaseInventoryItem(draft, LEMON_ID, state.playerInfo.orchardLemon * count);
+		increaseInventoryItem(draft, EGGS_ID, state.playerInfo.coopEggs * count);
+		increaseInventoryItem(draft, FEATHERS_ID, state.playerInfo.coopFeathers * count);
+		increaseInventoryItem(draft, MILK_ID, state.playerInfo.pastureMilk * count);
+		increaseInventoryItem(draft, GRAPES_ID, state.playerInfo.vineyardGrapes * count);
 		draft.waitedForReset = true;
 	}
 
@@ -182,15 +179,14 @@ export class WaitFor implements Action {
 
 	async nextState(): Promise<SearchState> {
 		return produce(this.#state, (draft) => {
-			draft.inventory = this.#state.inventory.slice();
-			increaseInventoryItem(draft.inventory, BOARD_ID, this.#state.playerInfo.sawmillBoard * this.#hourlyCount, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, WOOD_ID, this.#state.playerInfo.sawmillWood * this.#hourlyCount, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, STEEL_ID, this.#state.playerInfo.steelworksSteel * this.#hourlyCount, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, STEEL_WIRE_ID, this.#state.playerInfo.steelworksSteelWire * this.#hourlyCount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft, BOARD_ID, this.#state.playerInfo.sawmillBoard * this.#hourlyCount);
+			increaseInventoryItem(draft, WOOD_ID, this.#state.playerInfo.sawmillWood * this.#hourlyCount);
+			increaseInventoryItem(draft, STEEL_ID, this.#state.playerInfo.steelworksSteel * this.#hourlyCount);
+			increaseInventoryItem(draft, STEEL_WIRE_ID, this.#state.playerInfo.steelworksSteelWire * this.#hourlyCount);
 
-			increaseInventoryItem(draft.inventory, STRAW_ID, this.#state.playerInfo.hayfieldStraw * this.#tenMinCount, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, STONE_ID, this.#state.playerInfo.quarryStone * this.#tenMinCount, this.#state.playerInfo.maxInventory);
-			increaseInventoryItem(draft.inventory, COAL_ID, this.#state.playerInfo.quarryCoal * this.#tenMinCount, this.#state.playerInfo.maxInventory);
+			increaseInventoryItem(draft, STRAW_ID, this.#state.playerInfo.hayfieldStraw * this.#tenMinCount);
+			increaseInventoryItem(draft, STONE_ID, this.#state.playerInfo.quarryStone * this.#tenMinCount);
+			increaseInventoryItem(draft, COAL_ID, this.#state.playerInfo.quarryCoal * this.#tenMinCount);
 
 			WaitForReset._updateDaily(draft, this.#dailyCount);
 		});
