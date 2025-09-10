@@ -212,4 +212,8 @@ export class ExploreArea implements Action {
 
 		return null;
 	}
+
+	withNewState(state: SearchState): Action {
+		return new ExploreArea(this.area, this.item, this.amount, state);
+	}
 }

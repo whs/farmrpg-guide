@@ -26,6 +26,10 @@ export class BuySteak implements Action {
 	toString(): string {
 		return `Buy Steak ×${this.amount}`
 	}
+
+	withNewState(state: SearchState): Action {
+		return new BuySteak(this.amount, state);
+	}
 }
 
 export class BuySteakKabob implements Action {
@@ -51,5 +55,9 @@ export class BuySteakKabob implements Action {
 
 	toString(): string {
 		return `Buy Steak Kabob ×${this.amount}`
+	}
+
+	withNewState(state: SearchState): Action {
+		return new BuySteakKabob(this.amount, state);
 	}
 }

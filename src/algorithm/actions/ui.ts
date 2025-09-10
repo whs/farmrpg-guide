@@ -51,6 +51,10 @@ export class SubmitQuest implements Action {
 	toString(): string {
 		return `Submit Quest ${this.quest.name}`;
 	}
+
+	withNewState(state: SearchState): Action {
+		return new SubmitQuest(this.quest, state);
+	}
 }
 
 export class BuyItemStore implements Action {
@@ -96,6 +100,10 @@ export class BuyItemStore implements Action {
 			return this;
 		}
 		return null;
+	}
+
+	withNewState(state: SearchState): Action {
+		return new BuyItemStore(this.item, this.amount, state);
 	}
 }
 
@@ -143,6 +151,10 @@ export class OpenChest implements Action {
 		}
 		return null;
 	}
+
+	withNewState(state: SearchState): Action {
+		return new OpenChest(this.chest, this.amount, state);
+	}
 }
 
 export class SellItem implements Action {
@@ -178,6 +190,10 @@ export class SellItem implements Action {
 			return this;
 		}
 		return null;
+	}
+
+	withNewState(state: SearchState): Action {
+		return new SellItem(this.item, this.amount, state);
 	}
 }
 
@@ -235,5 +251,9 @@ export class GiveToNPC implements Action {
 			return this;
 		}
 		return null;
+	}
+
+	withNewState(state: SearchState): Action {
+		return new GiveToNPC(this.item, this.npc, this.amount, state);
 	}
 }

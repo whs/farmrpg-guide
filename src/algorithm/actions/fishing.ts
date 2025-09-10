@@ -142,6 +142,10 @@ export class ManualFishing implements Action {
 		}
 		return null;
 	}
+
+	withNewState(state: SearchState): Action {
+		return new ManualFishing(this.area, this.item, this.amount, state);
+	}
 }
 
 export class NetFishing implements Action {
@@ -250,5 +254,9 @@ export class NetFishing implements Action {
 			return this;
 		}
 		return null;
+	}
+
+	withNewState(state: SearchState): Action {
+		return new NetFishing(this.area, this.item, this.amount, state);
 	}
 }

@@ -73,4 +73,8 @@ export class CraftItem implements Action {
 
 		return null;
 	}
+
+	withNewState(state: SearchState): Action {
+		return new CraftItem(this.item, this.amount, state);
+	}
 }

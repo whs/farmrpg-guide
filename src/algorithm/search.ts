@@ -1,6 +1,6 @@
 import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Action, SearchState, STEAK_ID, STEAK_KABOB_ID, AmountTargetMode} from "./types.ts";
 import {getItemInfo, getItemName, getLocationInfo, isExplorable, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
-import {castDraft, produce} from "immer";
+import {castDraft, createDraft, finishDraft, produce} from "immer";
 import { delay, invariant } from "es-toolkit";
 import {BuyItemStore, GiveToNPC, OpenChest, SellItem, SubmitQuest} from "./actions/ui.ts";
 import {FarmPlant} from "./actions/farming.ts";
@@ -10,6 +10,7 @@ import {CraftItem} from "./actions/crafting.ts";
 import {FeedMill, FlourMill, WaitFor, WaitForReset} from "./actions/passive.ts";
 import {BuySteak, BuySteakKabob} from "./ui.ts";
 import { diffItemMap } from "./utils.ts";
+import { DeepWritable } from "ts-essentials";
 
 export const actionsSearched = {actions: 0};
 
@@ -70,34 +71,7 @@ async function _greedySearchState(state: NextState, emit: (_: NextState) => void
 		}
 	}
 
-	// Now we have the best strategy
-
 	emit(bestFuture);
-
-	// Minimize item voids, by sinking them first
-	let voidItems = diffItemMap(state.state.inventoryVoid, bestFuture.state.inventoryVoid);
-	for(let [itemId, voidAmount] of voidItems.entries()){
-		let itemName = await Promise.race([getItemName(itemId), delay(10)]);
-		if(!itemName){
-			continue;
-		}
-		let sunkenFuture = await tryToCompleteObjective(bestFuture, {
-			item: {
-				name: itemName,
-				info: await getItemInfo(itemName),
-				amount: Math.max(0, state.state.inventory[itemId] - voidAmount),
-				mode: AmountTargetMode.EXACT,
-			},
-			ignored: false,
-		});
-		if(sunkenFuture === bestFuture){
-			continue;
-		}
-		bestFuture = sunkenFuture;
-		console.log("emitting sink strategy", sunkenFuture.actions[sunkenFuture.actions.length-1].toString());
-		emit(bestFuture);
-	}
-	// TODO: We should sink BEFORE void not after...
 
 	await delay(10);
 
@@ -186,7 +160,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	}
 
 	let currentCompletionPercent = await completionScoreFunc(state);
-	let bestStrategy = null;
+	let bestStrategy: NextState|null = null;
 	let bestCompletionScore = 0;
 
 	for (let strategy of viableStrategies) {
@@ -214,6 +188,56 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	if (await completionScoreFunc(bestStrategy) <= currentCompletionPercent) {
 		console.log(objective.quest?.name, "best strategy doesn't move the goal", bestCompletionScore, currentCompletionPercent, bestStrategy.actions[bestStrategy.actions.length-1].toString())
 		return state;
+	}
+
+	let voidItems = diffItemMap(state.state.inventoryVoid, bestStrategy.state.inventoryVoid);
+	if(voidItems.size > 0){
+		let currentState = state.state;
+		invariant(bestStrategy !== state, "bestStrategy should be a clone");
+		invariant(bestStrategy.actions !== state.actions, "bestStrategy.actions should be a clone");
+		
+		let draft = createDraft(bestStrategy);
+		let bestStrategyAction = draft.actions.pop()!;
+		draft.timeTaken -= bestStrategyAction.getTimeRequired();
+			
+		for(let [itemId, voidAmount] of voidItems.entries()){
+			let itemName = await Promise.race([getItemName(itemId), delay(10)]);
+			if(!itemName){
+				continue;
+			}
+
+			let sinkObjective = {
+				item: {
+					name: itemName,
+					info: await getItemInfo(itemName),
+					amount: Math.max(0, state.state.inventory[itemId] - voidAmount),
+					mode: AmountTargetMode.EXACT,
+				},
+				ignored: false,
+			};
+			
+			// Try to complete sink objective
+			let sinkFuture = await tryToCompleteObjective({
+				actions: [],
+				state: currentState,
+				timeTaken: 0,
+			}, sinkObjective);
+			
+			if(sinkFuture.state !== currentState) {
+				console.log("added sink strategy", sinkFuture.actions[sinkFuture.actions.length-1].toString());
+				currentState = sinkFuture.state;
+				draft.actions.push(...sinkFuture.actions);
+				draft.timeTaken += sinkFuture.timeTaken;
+			}
+		}
+
+		let newBestStrategyAction = bestStrategyAction.withNewState(currentState);
+
+		draft.actions.push(newBestStrategyAction);
+		draft.state = (await newBestStrategyAction.nextState()) as DeepWritable<SearchState>;
+		draft.timeTaken += newBestStrategyAction.getTimeRequired();
+
+		bestStrategy = finishDraft(draft);
 	}
 
 	// Don't search too hard

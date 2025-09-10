@@ -63,6 +63,10 @@ export class FlourMill implements Action {
 		}
 		return null;
 	}
+
+	withNewState(state: SearchState): Action {
+		return new FlourMill(this.#amount, state);
+	}
 }
 
 export class FeedMill implements Action {
@@ -118,6 +122,10 @@ export class FeedMill implements Action {
 		}
 		return null;
 	}
+
+	withNewState(state: SearchState): Action {
+		return new FeedMill(this.#input, this.#amount, state);
+	}
 }
 
 export class WaitForReset implements Action {
@@ -155,6 +163,10 @@ export class WaitForReset implements Action {
 
 	toString(): string {
 		return "Wait for next reset"
+	}
+
+	withNewState(state: SearchState): Action {
+		return new WaitForReset(state);
 	}
 }
 
@@ -207,5 +219,9 @@ export class WaitFor implements Action {
 			return new WaitFor(this.#state, this.mins + action.mins);
 		}
 		return null;
+	}
+
+	withNewState(state: SearchState): Action {
+		return new WaitFor(state, this.mins);
 	}
 }

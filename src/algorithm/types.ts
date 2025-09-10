@@ -92,6 +92,11 @@ export interface Action {
 	 * @return Merged action, or null if it cannot be merged
 	 */
 	collapseWith?(action: Action): Action|null,
+
+	/**
+	 * Create a new instance of this action with updated state reference
+	 */
+	withNewState(state: SearchState): Action,
 }
 
 export const LEMONADE_ID = 86;

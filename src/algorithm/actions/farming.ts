@@ -128,4 +128,8 @@ export class FarmPlant implements Action {
 		}
 		return null;
 	}
+
+	withNewState(state: SearchState): Action {
+		return new FarmPlant(this.seed, this.output, this.desired, state);
+	}
 }
