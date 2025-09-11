@@ -56,7 +56,7 @@ export default class Result extends Component<Props, any> {
 								<div class="text-xs font-medium border-1 border-slate-200 p-1 rounded-md bg-slate-100">{formatDuration(timeTaken)}</div>
 								{questName && <button title="Ignore" class="ml-1 text-xs border-1 border-red-800 p-1 rounded-md hover:bg-red-100 cursor-pointer" onClick={() => this.props.onAddIgnoreQuest(questName)}><span class="material-symbols-rounded text-xs!">visibility_off</span></button>}
 							</div>
-							<div class="mb-2">
+							{voids.size > 0 && <div class="mb-2">
 								<ul class="flex gap-1 text-xs flex-wrap">
 									<li class="font-bold">Voids</li>
 									{Array.from(voids.entries()).map(([k, v]) => {
@@ -65,7 +65,7 @@ export default class Result extends Component<Props, any> {
 										);
 									})}
 								</ul>
-							</div>
+							</div>}
 							<ol class="list-decimal pl-6 leading-6">
 								{this.formatActions(newActions)}
 							</ol>
