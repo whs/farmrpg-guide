@@ -176,7 +176,8 @@ export class SellItem implements Action {
 		return produce(this.#lastState, (draft) => {
 			increaseInventoryItem(draft, this.item.id, -this.amount);
 			// TODO: Buddyfarm doesn't have item price
-			increaseSilver(draft, this.amount);
+			let itemPrice = Math.pow(1.27, this.item.craftingLevel || this.item.cookingLevel || 1);
+			increaseSilver(draft, Math.round(this.amount * itemPrice));
 		})
 	}
 

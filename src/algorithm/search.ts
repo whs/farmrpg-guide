@@ -10,7 +10,6 @@ import {CraftItem} from "./actions/crafting.ts";
 import {FeedMill, FlourMill, WaitFor, WaitForReset} from "./actions/passive.ts";
 import {BuySteak, BuySteakKabob} from "./ui.ts";
 import { diffItemMap } from "./utils.ts";
-import { DeepWritable } from "ts-essentials";
 
 export const actionsSearched = {actions: 0};
 
@@ -78,7 +77,7 @@ async function _greedySearchState(state: NextState, emit: (_: NextState) => void
 	return _greedySearchState(bestFuture, emit);
 }
 
-async function tryToCompleteObjective(state: NextState, objective: Objective): Promise<NextState> {
+async function tryToCompleteObjective(state: NextState, objective: Objective, _internal: {avoidSink: boolean} = {avoidSink: true}): Promise<NextState> {
 	// TODO: Probably better ideas
 	let strategies: Action[] = [
 		new WaitFor(state.state, 10),
@@ -108,6 +107,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 			return state;
 		}else if(objective.item.mode === AmountTargetMode.EXACT && itemsNeeded < 0) {
 			// We have too many items, sink
+			strategies = []; // I don't want the WaitFor strategies
 			let lastAverageRequestCompletion = await getAverageObjectiveCompletion(state.state);
 			completionScoreFunc = (nextState: NextState) => getItemSinkScore(state, nextState, objective, lastAverageRequestCompletion);
 			
@@ -136,18 +136,18 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		actionsSearched.actions++;
 		return produce(state, (draft) => {
 			// Add current action to the action list, but try merging if possible
-			// TODO: This could be done last so we don't have to try it with every strategies, but I don't think it's a huge optimization
+			// TODO: Move merging to be done last, after voids
 			(() => {
-				if (draft.actions.length > 0){
-					let lastItem  = draft.actions[draft.actions.length - 1];
-					if(lastItem.collapseWith){
-						let newItem = lastItem.collapseWith(strategy);
-						if(newItem !== null){
-							draft.actions[draft.actions.length - 1] = newItem
-							return;
-						}
-					}
-				}
+				// if (draft.actions.length > 0){
+				// 	let lastItem  = draft.actions[draft.actions.length - 1];
+				// 	if(lastItem.collapseWith){
+				// 		let newItem = lastItem.collapseWith(strategy);
+				// 		if(newItem !== null){
+				// 			draft.actions[draft.actions.length - 1] = newItem
+				// 			return;
+				// 		}
+				// 	}
+				// }
 				draft.actions.push(strategy);
 			})();
 			draft.state = castDraft(nextState);
@@ -170,8 +170,19 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 			return strategy;
 		}
 
+		if(!_internal.avoidSink){
+			// Don't allow any strategy that create voids if we are trying to avoid sink
+			let voidItems = diffItemMap(state.state.inventoryVoid, strategy.state.inventoryVoid);
+			if(voidItems.size > 0){
+				continue;
+			}
+		}
+
 		let completionPercent = await completionScoreFunc(strategy);
-		// console.log("Strategy", strategy.actions[strategy.actions.length-1].toString(), "completion percent", completionPercent);
+		// if(objective.item?.mode === AmountTargetMode.EXACT){
+		// 	console.log("sinking", objective.item!.name);
+		// 	console.log("Strategy", strategy.actions[strategy.actions.length-1].toString(), "completion percent", completionPercent);
+		// }
 
 		// Score = (newCompletion - oldCompletion)/timeTaken (completion % per ms)
 		let completionScore = (completionPercent - currentCompletionPercent) / (strategy.timeTaken - state.timeTaken);
@@ -182,7 +193,9 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		}
 	}
 
-	invariant(bestStrategy !== null, "bestStrategy is set");
+	if(!bestStrategy){
+		return state;
+	}
 
 	// If the best strategy doesn't move currentCompletionPercent, return input state
 	if (await completionScoreFunc(bestStrategy) <= currentCompletionPercent) {
@@ -190,11 +203,10 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		return state;
 	}
 
+	// Calculate void items and try to avoid it
 	let voidItems = diffItemMap(state.state.inventoryVoid, bestStrategy.state.inventoryVoid);
-	if(voidItems.size > 0){
+	if(_internal.avoidSink && voidItems.size > 0){
 		let currentState = state.state;
-		invariant(bestStrategy !== state, "bestStrategy should be a clone");
-		invariant(bestStrategy.actions !== state.actions, "bestStrategy.actions should be a clone");
 		
 		let draft = createDraft(bestStrategy);
 		let bestStrategyAction = draft.actions.pop()!;
@@ -221,10 +233,9 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 				actions: [],
 				state: currentState,
 				timeTaken: 0,
-			}, sinkObjective);
+			}, sinkObjective, {avoidSink: false});
 			
 			if(sinkFuture.state !== currentState) {
-				console.log("added sink strategy", sinkFuture.actions[sinkFuture.actions.length-1].toString());
 				currentState = sinkFuture.state;
 				draft.actions.push(...sinkFuture.actions);
 				draft.timeTaken += sinkFuture.timeTaken;
@@ -234,7 +245,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 		let newBestStrategyAction = bestStrategyAction.withNewState(currentState);
 
 		draft.actions.push(newBestStrategyAction);
-		draft.state = (await newBestStrategyAction.nextState()) as DeepWritable<SearchState>;
+		draft.state = castDraft(await newBestStrategyAction.nextState());
 		draft.timeTaken += newBestStrategyAction.getTimeRequired();
 
 		bestStrategy = finishDraft(draft);
@@ -243,7 +254,7 @@ async function tryToCompleteObjective(state: NextState, objective: Objective): P
 	// Don't search too hard
 	await delay(1);
 
-	return tryToCompleteObjective(bestStrategy!!, objective);
+	return tryToCompleteObjective(bestStrategy, objective);
 }
 
 async function howToGetItem(state: NextState, item: ItemInfo, amount: number): Promise<Action[]>{
@@ -368,7 +379,16 @@ async function howToSinkItem(state: NextState, item: ItemInfo, amount: number): 
 	out.push(...(await Promise.all(item.recipeIngredientItems.map(async (recipe) => {
 		let recipeItem = await getItemInfo(recipe.item.name);
 		if(recipe.item.canCraft){
-			return new CraftItem(recipeItem, Math.ceil(sinkAmount / recipe.quantity), state.state);
+			let maxCraftable = sinkAmount;
+
+			for(let ingredient of recipeItem.recipeItems){
+				let craftable = Math.floor(state.state.inventory[ingredient.item.id] / ingredient.quantity);
+				maxCraftable = Math.min(maxCraftable, craftable);
+			}
+			
+			if(maxCraftable > 0){
+				return new CraftItem(recipeItem, maxCraftable, state.state);
+			}
 		}
 	}))).filter(v => v !== undefined));
 
@@ -547,13 +567,18 @@ async function getItemSinkScore(lastState: NextState, state: NextState, objectiv
 	
 	let silverGained = state.state.silver - lastState.state.silver;
 	let questCompletionChanged = newAverageObjectiveCompletion - lastAverageRequestCompletion;
+
+	if (questCompletionChanged > 0 && state.actions[state.actions.length - 1] instanceof CraftItem) {
+		// Handcrafted rule: Highly prefer crafting items
+		return 1000;
+	}
 	
 	let itemsSunk = lastState.state.inventory[objective.item!.info!.id] - state.state.inventory[objective.item!.info!.id]
 	let itemsSunkRequested = lastState.state.inventory[objective.item!.info!.id] - objective.item!.amount;
 	let objectiveProgress = itemsSunk / itemsSunkRequested;
 	
-	let netQuestImpact = questCompletionChanged > 0 ? questCompletionChanged * 100 : questCompletionChanged * 2;
-	let silverUtility = Math.log(silverGained + 1) * 0.1;
+	let netQuestImpact = questCompletionChanged > 0 ? questCompletionChanged * 200 : questCompletionChanged * 2;
+	let silverUtility = silverGained > 0 ?  (Math.log(silverGained + 1) * 0.05) : 0;
 
 	return objectiveProgress + netQuestImpact + silverUtility;
 }
