@@ -2,10 +2,10 @@ import { ComponentType, h } from "preact";
 import { Action } from "../../algorithm/types.ts";
 import Item from "./Item.tsx";
 import Location from "./Location.tsx";
-import {BuyItemStore, OpenChest, SubmitQuest} from "../../algorithm/actions/ui.ts";
+import {BuyItemStore, OpenChest, SubmitQuest, SellItem, GiveToNPC} from "../../algorithm/actions/ui.ts";
 import {FarmPlant} from "../../algorithm/actions/farming.ts";
 import {ExploreArea} from "../../algorithm/actions/exploring.ts";
-import {ManualFishing, NetFishing} from "../../algorithm/actions/fishing.ts";
+import {ManualFishing, NetFishing, ManualFishingWithBait, NetFishingTimes} from "../../algorithm/actions/fishing.ts";
 import {CraftItem} from "../../algorithm/actions/crafting.ts";
 import {BuySteak, BuySteakKabob} from "../../algorithm/ui.ts";
 
@@ -53,7 +53,7 @@ providerComponent.set(ManualFishing, (props: {action: ManualFishing}) => {
 	return (
 		<div>
 			<div><img class="inline h-[1.5em]" src="https://farmrpg.com/img/items/7783.png" aria-hidden alt="" /> Manual Fish <strong><Location location={props.action.area} /></strong> ×{Math.ceil(props.action.getAttemptsRequired())}</div>
-			<div>for <Item item={props.action.item} /> ×{props.action.amount}</div>
+			<div>for <strong><Item item={props.action.item} /></strong> ×{props.action.amount}</div>
 		</div>
 	);
 });
@@ -76,6 +76,35 @@ providerComponent.set(CraftItem, (props: {action: CraftItem}) => {
 providerComponent.set(OpenChest, (props: {action: OpenChest}) => {
 	return (
 		<div>Open <strong><Item item={props.action.chest} /></strong> ×{props.action.amount}</div>
+	);
+});
+
+providerComponent.set(SellItem, (props: {action: SellItem}) => {
+	return (
+		<div><img class="inline h-[1.5em]" src="https://farmrpg.com/img/items/silver.png" aria-hidden alt="" /> Sell <strong><Item item={props.action.item} /></strong> ×{props.action.amount}</div>
+	);
+});
+
+providerComponent.set(GiveToNPC, (props: {action: GiveToNPC}) => {
+	return (
+		<div>Give <strong><Item item={props.action.item} /></strong> ×{props.action.amount} to <strong>{props.action.npc}</strong></div>
+	);
+});
+
+providerComponent.set(ManualFishingWithBait, (props: {action: ManualFishingWithBait}) => {
+	return (
+		<div>
+			<div><Item item={props.action.bait} /> Manual Fish <strong><Location location={props.action.area} /></strong> ×{props.action.amount}</div>
+		</div>
+	);
+});
+
+providerComponent.set(NetFishingTimes, (props: {action: NetFishingTimes}) => {
+	let netId = ["small", 7748].includes(props.action.net) ? 7748 : 7750;
+	return (
+		<div>
+			<div><Item itemId={netId} /> <strong><Location location={props.action.area} /></strong> ×{props.action.amount}</div>
+		</div>
 	);
 });
 
