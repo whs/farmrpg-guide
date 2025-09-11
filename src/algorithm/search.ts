@@ -1,11 +1,11 @@
-import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Action, SearchState, STEAK_ID, STEAK_KABOB_ID, AmountTargetMode} from "./types.ts";
-import {getItemInfo, getItemName, getLocationInfo, isExplorable, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
+import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Action, SearchState, STEAK_ID, STEAK_KABOB_ID, AmountTargetMode, FISHING_NET_ID, LARGE_FISHING_NET_ID, WORM_ID, GRUB_ID, MINNOW_ID, GUMMY_WORM_ID, MEALWORM_ID} from "./types.ts";
+import {getItemInfo, getItemName, getLocationInfo, isExplorable, getFishingAreas, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {castDraft, createDraft, finishDraft, produce} from "immer";
 import { delay, invariant } from "es-toolkit";
 import {BuyItemStore, GiveToNPC, OpenChest, SellItem, SubmitQuest} from "./actions/ui.ts";
 import {FarmPlant} from "./actions/farming.ts";
 import {ExploreArea} from "./actions/exploring.ts";
-import {ManualFishing, NetFishing} from "./actions/fishing.ts";
+import {ManualFishing, ManualFishingWithBait, NetFishing, NetFishingTimes} from "./actions/fishing.ts";
 import {CraftItem} from "./actions/crafting.ts";
 import {FeedMill, FlourMill, WaitFor, WaitForReset} from "./actions/passive.ts";
 import {BuySteak, BuySteakKabob} from "./ui.ts";
@@ -340,6 +340,30 @@ async function howToSinkItem(state: NextState, item: ItemInfo, amount: number): 
 	let out: Action[] = [
 		new SellItem(item, sinkAmount, state.state),
 	];
+
+	// TODO: Explore
+
+	if([FISHING_NET_ID, LARGE_FISHING_NET_ID].includes(item.id)) {
+		let fishingLocations = await getFishingAreas();
+		
+		let netActions = await Promise.all(fishingLocations.map(async (locationName) => {
+			let locationInfo = await getLocationInfo(locationName);
+			return new NetFishingTimes(locationInfo, item.id, sinkAmount, state.state);
+		}));
+		
+		out.push(...netActions);
+	}
+	
+	if([WORM_ID, GRUB_ID, MINNOW_ID, GUMMY_WORM_ID, MEALWORM_ID].includes(item.id)) {
+		let fishingLocations = await getFishingAreas();
+		
+		let baitActions = await Promise.all(fishingLocations.map(async (locationName) => {
+			let locationInfo = await getLocationInfo(locationName);
+			return new ManualFishingWithBait(locationInfo, item, sinkAmount, state.state);
+		}));
+		
+		out.push(...baitActions);
+	}
 
 	out.push(...(await Promise.all(item.recipeIngredientItems.map(async (recipe) => {
 		let recipeItem = await getItemInfo(recipe.item.name);

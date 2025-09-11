@@ -122,3 +122,17 @@ export function isExplorable(item: ItemInfo): boolean {
 		return dropRate.dropRates.location?.type === "explore";
 	});
 }
+
+export const getFishingAreas = memoize(async (): Promise<string[]> => {
+	return await cacheFill('fishing', "", async () => {
+		const data = await (await fetch(`https://buddy.farm/page-data/fishing/page-data.json`)).json();
+		return data.result.data.farmrpg.locations.map((area: any) => area.name) as string[];
+	});
+});
+
+export const getExploringArea = memoize(async (): Promise<string[]> => {
+	return await cacheFill('exploring', "", async () => {
+		const data = await (await fetch(`https://buddy.farm/page-data/exploring/page-data.json`)).json();
+		return data.result.data.farmrpg.locations.map((area: any) => area.name) as string[];
+	});
+});

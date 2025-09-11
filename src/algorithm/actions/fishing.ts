@@ -260,3 +260,146 @@ export class NetFishing implements Action {
 		return new NetFishing(this.area, this.item, this.amount, state);
 	}
 }
+
+export class ManualFishingWithBait implements Action {
+	area: LocationInfo;
+	bait: ItemInfo;
+	amount: number;
+	#lastState: SearchState;
+	#dropTable: DropRatesItem[] = [];
+
+	constructor(areaInfo: LocationInfo, bait: ItemInfo, desiredAmount: number, state: SearchState) {
+		this.area = areaInfo;
+		this.bait = bait;
+		this.amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
+		this.#lastState = state;
+
+		// Find the drop table for manual fishing
+		for (let dropTable of areaInfo.dropRates) {
+			if (dropTable.manualFishing) {
+				this.#dropTable = dropTable.items;
+				break;
+			}
+		}
+	}
+
+	toString(): string {
+		return `Manual Fishing with ${this.bait.name} at ${this.area.name} ×${this.amount}`;
+	}
+
+	getTimeRequired(): number {
+		if (this.amount <= 0) return 0;
+		// 5s per bait use
+		return this.amount * 5000;
+	}
+
+	async nextState(): Promise<SearchState> {
+		if (this.amount <= 0) {
+			return this.#lastState;
+		}
+
+		checkFishingZone(this.area, this.#lastState);
+
+		return produce(this.#lastState, (draft) => {
+			// Use up the bait
+			increaseInventoryItem(draft, this.bait.id, -this.amount);
+
+			// Use law of large numbers - calculate expected drops based on rates
+			for (let drop of this.#dropTable) {
+				let expectedDrops = Math.floor(this.amount * drop.rate);
+				increaseInventoryItem(draft, drop.item.id, expectedDrops);
+			}
+		});
+	}
+
+	collapseWith(action: Action): Action | null {
+		if(action instanceof ManualFishingWithBait && action.area.id === this.area.id && action.bait.id === this.bait.id) {
+			this.amount = Math.min(action.#lastState.playerInfo.maxInventory, this.amount + action.amount);
+			return this;
+		}
+		return null;
+	}
+
+	withNewState(state: SearchState): Action {
+		return new ManualFishingWithBait(this.area, this.bait, this.amount, state);
+	}
+}
+
+export class NetFishingTimes implements Action {
+	area: LocationInfo;
+	net: "small" | "large" | number;
+	amount: number;
+	#lastState: SearchState;
+	#dropTable: DropRatesItem[] = [];
+
+	constructor(areaInfo: LocationInfo, net: "small" | "large" | number, desiredAmount: number, state: SearchState) {
+		this.area = areaInfo;
+		this.net = net;
+		this.amount = Math.min(state.playerInfo.maxInventory, desiredAmount);
+		this.#lastState = state;
+
+		// Find the drop table for net fishing
+		for (let dropTable of areaInfo.dropRates) {
+			if (!dropTable.manualFishing) {
+				this.#dropTable = dropTable.items;
+				break;
+			}
+		}
+	}
+
+	toString(): string {
+		let netType = ["small", FISHING_NET_ID].includes(this.net) ? "" : "Large ";
+		return `${netType}Net Fishing at ${this.area.name} ×${this.amount}`;
+	}
+
+	getTimeRequired(): number {
+		if (this.amount <= 0) return 0;
+		// 300 ms per net use
+		return this.amount * 300;
+	}
+
+	async nextState(): Promise<SearchState> {
+		if (this.amount <= 0) {
+			return this.#lastState;
+		}
+
+		checkFishingZone(this.area, this.#lastState);
+
+		return produce(this.#lastState, (draft) => {
+			// Determine net ID and rolls per net
+			let netId: number;
+			let rollsPerNet: number;
+			
+			if (["small", FISHING_NET_ID].includes(this.net)) {
+				netId = FISHING_NET_ID;
+				rollsPerNet = this.#lastState.playerInfo.goldPerks.includes("Reinforced Netting") ? 15 : 10;
+			} else {
+				netId = LARGE_FISHING_NET_ID;
+				rollsPerNet = 25 * (this.#lastState.playerInfo.goldPerks.includes("Reinforced Netting") ? 15 : 10);
+			}
+
+			// Use up the nets
+			increaseInventoryItem(draft, netId, -this.amount);
+
+			// Simulate rolls - each net use gives multiple rolls
+			let totalRolls = this.amount * rollsPerNet;
+			for (let drop of this.#dropTable) {
+				// Calculate expected drops based on rate
+				let expectedDrops = Math.floor(totalRolls / drop.rate);
+				increaseInventoryItem(draft, drop.item.id, expectedDrops);
+			}
+		});
+	}
+
+	collapseWith(action: Action): Action | null {
+		if(action instanceof NetFishingTimes && action.area.id === this.area.id && action.net === this.net) {
+			this.amount = Math.min(action.#lastState.playerInfo.maxInventory, this.amount + action.amount);
+			return this;
+		}
+		return null;
+	}
+
+	withNewState(state: SearchState): Action {
+		return new NetFishingTimes(this.area, this.net, this.amount, state);
+	}
+}
