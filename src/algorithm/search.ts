@@ -179,10 +179,9 @@ async function tryToCompleteObjective(state: NextState, objective: Objective, _i
 		}
 
 		let completionPercent = await completionScoreFunc(strategy);
-		// if(objective.item?.mode === AmountTargetMode.EXACT){
-		// 	console.log("sinking", objective.item!.name);
-		// 	console.log("Strategy", strategy.actions[strategy.actions.length-1].toString(), "completion percent", completionPercent);
-		// }
+		if(objective.item?.mode === AmountTargetMode.EXACT){
+			console.log("sinking", objective.item!.name, "Strategy", strategy.actions[strategy.actions.length-1].toString(), "completion percent", completionPercent);
+		}
 
 		// Score = (newCompletion - oldCompletion)/timeTaken (completion % per ms)
 		let completionScore = (completionPercent - currentCompletionPercent) / (strategy.timeTaken - state.timeTaken);
@@ -349,7 +348,7 @@ async function howToSinkItem(state: NextState, item: ItemInfo, amount: number): 
 	}
 	
 	let out: Action[] = [
-		new SellItem(item, sinkAmount, state.state),
+		new SellItem(item, sinkAmount, state.state, 10_000),
 	];
 
 	// TODO: Explore
@@ -568,17 +567,14 @@ async function getItemSinkScore(lastState: NextState, state: NextState, objectiv
 	let silverGained = state.state.silver - lastState.state.silver;
 	let questCompletionChanged = newAverageObjectiveCompletion - lastAverageRequestCompletion;
 
+	// Manual rules
+	let manualWeight = 0;
 	if (questCompletionChanged > 0 && state.actions[state.actions.length - 1] instanceof CraftItem) {
-		// Handcrafted rule: Highly prefer crafting items
-		return 1000;
+		manualWeight = 1000;
 	}
-	
-	let itemsSunk = lastState.state.inventory[objective.item!.info!.id] - state.state.inventory[objective.item!.info!.id]
-	let itemsSunkRequested = lastState.state.inventory[objective.item!.info!.id] - objective.item!.amount;
-	let objectiveProgress = itemsSunk / itemsSunkRequested;
 	
 	let netQuestImpact = questCompletionChanged > 0 ? questCompletionChanged * 200 : questCompletionChanged * 2;
 	let silverUtility = silverGained > 0 ?  (Math.log(silverGained + 1) * 0.05) : 0;
 
-	return objectiveProgress + netQuestImpact + silverUtility;
+	return manualWeight + netQuestImpact + silverUtility;
 }
