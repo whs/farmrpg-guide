@@ -1,4 +1,4 @@
-import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Action, SearchState, STEAK_ID, STEAK_KABOB_ID, AmountTargetMode, FISHING_NET_ID, LARGE_FISHING_NET_ID, WORM_ID, GRUB_ID, MINNOW_ID, GUMMY_WORM_ID, MEALWORM_ID} from "./types.ts";
+import {APPLE_ID, FEED_ID, FLOUR_ID, GameplayError, MAX_ITEMS, Objective, Action, SearchState, STEAK_ID, STEAK_KABOB_ID, AmountTargetMode, FISHING_NET_ID, LARGE_FISHING_NET_ID, WORM_ID, GRUB_ID, MINNOW_ID, GUMMY_WORM_ID, MEALWORM_ID, BOARD_ID, STEEL_ID, STEEL_WIRE_ID, STRAW_ID, STONE_ID, COAL_ID, WOOD_ID, IRON_ID, NAILS_ID} from "./types.ts";
 import {getItemInfo, getItemName, getLocationInfo, isExplorable, getFishingAreas, ItemInfo, QuestInfo} from "../data/buddyfarm.ts";
 import {castDraft, createDraft, finishDraft, produce} from "immer";
 import { delay, invariant } from "es-toolkit";
@@ -12,6 +12,24 @@ import {BuySteak, BuySteakKabob} from "./ui.ts";
 import { diffItemMap } from "./utils.ts";
 
 export const actionsSearched = {actions: 0};
+
+// Do not sink items we can get hourly
+const NO_SINK_ITEMS = [
+	WOOD_ID,
+	BOARD_ID,
+	STEEL_ID,
+	STEEL_WIRE_ID,
+	STRAW_ID,
+	STONE_ID,
+	COAL_ID,
+	IRON_ID,
+	NAILS_ID,
+	WORM_ID,
+	GRUB_ID,
+	MINNOW_ID,
+	GUMMY_WORM_ID,
+	MEALWORM_ID,
+];
 
 export function arrayToUint16(inventory: number[]){
 	let out = new Uint16Array(MAX_ITEMS);
@@ -213,15 +231,23 @@ async function tryToCompleteObjective(state: NextState, objective: Objective, _i
 		draft.timeTaken -= bestStrategyAction.getTimeRequired();
 			
 		for(let [itemId, voidAmount] of voidItems.entries()){
+			if(NO_SINK_ITEMS.includes(itemId)){
+				continue;
+			}
 			let itemName = await Promise.race([getItemName(itemId), delay(10)]);
 			if(!itemName){
+				continue;
+			}
+			let itemInfo = await getItemInfo(itemName);
+			if(itemInfo.canBuy){
+				// Skip all buyable items
 				continue;
 			}
 
 			let sinkObjective = {
 				item: {
 					name: itemName,
-					info: await getItemInfo(itemName),
+					info: itemInfo,
 					amount: Math.max(0, state.state.inventory[itemId] - voidAmount),
 					mode: AmountTargetMode.EXACT,
 				},
@@ -558,7 +584,7 @@ async function getAverageObjectiveCompletion(state: SearchState): Promise<number
 	return completion / totalQuest;
 }
 
-async function getItemSinkScore(lastState: NextState, state: NextState, objective: Objective, lastAverageRequestCompletion: number): Promise<number>{
+async function getItemSinkScore(lastState: NextState, state: NextState, _objective: Objective, lastAverageRequestCompletion: number): Promise<number>{
 	if (lastState === state) {
 		return 0;
 	}
