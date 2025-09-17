@@ -1,4 +1,4 @@
-import {Action, IRON_ID, NAILS_ID, SearchState} from "../types.ts";
+import {Action, GameplayError, IRON_ID, NAILS_ID, SearchState} from "../types.ts";
 import {getItemInfo, ItemInfo, QuestInfo} from "../../data/buddyfarm.ts";
 import {produce} from "immer";
 import {increaseInventoryItem, increaseSilver, MENUING_TIME} from "../utils.ts";
@@ -160,12 +160,14 @@ export class OpenChest implements Action {
 export class SellItem implements Action {
 	item: ItemInfo;
 	amount: number;
+	minTotalPrice: number;
 	#lastState: SearchState;
 
-	constructor(item: ItemInfo, amount: number, state: SearchState) {
+	constructor(item: ItemInfo, amount: number, state: SearchState, minTotalPrice: number = 0) {
 		this.item = item;
 		this.amount = amount;
 		this.#lastState = state;
+		this.minTotalPrice = minTotalPrice;
 	}
 
 	getTimeRequired(): number {
@@ -173,11 +175,17 @@ export class SellItem implements Action {
 	}
 
 	async nextState(): Promise<SearchState> {
+		let itemPrice = Math.pow(1.27, this.item.craftingLevel || this.item.cookingLevel || 1);
+		// TODO: Buddyfarm doesn't have item price
+		let totalSalePrice = Math.floor(itemPrice * this.amount);
+
+		if(totalSalePrice < this.minTotalPrice) {
+			throw new GameplayError(`Sale price ${totalSalePrice} is less than minimum acceptable value`);
+		}
+
 		return produce(this.#lastState, (draft) => {
 			increaseInventoryItem(draft, this.item.id, -this.amount);
-			// TODO: Buddyfarm doesn't have item price
-			let itemPrice = Math.pow(1.27, this.item.craftingLevel || this.item.cookingLevel || 1);
-			increaseSilver(draft, Math.round(this.amount * itemPrice));
+			increaseSilver(draft, totalSalePrice);
 		})
 	}
 
@@ -188,6 +196,7 @@ export class SellItem implements Action {
 	collapseWith(action: Action): Action | null {
 		if(action instanceof SellItem && action.item.id === this.item.id) {
 			this.amount += action.amount;
+			this.minTotalPrice += action.minTotalPrice;
 			return this;
 		}
 		return null;
